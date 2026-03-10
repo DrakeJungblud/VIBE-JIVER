@@ -3,37 +3,252 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIBE JIVER | Master Command</title>
-    <link rel="stylesheet" href="style.css">
+    <title>VIBE JIVER | Plot Finder Alpha</title>
+    <style>
+        :root {
+            --bg-black: #000000;
+            --gold-muted: #c5a059;
+            --gold-bright: #e7c17d;
+            --text-main: #ffffff;
+            --border-dim: #333333;
+            --font-size-main: 20px;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-black);
+            color: var(--text-main);
+            font-family: 'Segoe UI', sans-serif;
+            font-size: var(--font-size-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            border-bottom: 2px solid var(--gold-muted);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0a0a0a;
+            z-index: 10;
+        }
+
+        .logo {
+            color: var(--gold-bright);
+            font-weight: bold;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            flex-grow: 1;
+            height: calc(100vh - 70px);
+        }
+
+        aside {
+            background: #050505;
+            border-right: 1px solid var(--border-dim);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .inspector {
+            border-right: none;
+            border-left: 1px solid var(--border-dim);
+            background: #080808;
+            padding: 20px;
+        }
+
+        /* The Canvas / Drop Zone */
+        .canvas {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle, #151515 0%, #000 100%);
+            overflow: auto;
+            cursor: crosshair;
+        }
+
+        #drop-zone {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px dashed #222;
+            transition: 0.3s;
+        }
+
+        #drop-zone.dragover {
+            background: rgba(197, 160, 89, 0.1);
+            border-color: var(--gold-muted);
+        }
+
+        #uploaded-image {
+            max-width: 100%;
+            display: none;
+            box-shadow: 0 0 30px rgba(0,0,0,1);
+        }
+
+        .vibe-btn {
+            background: transparent;
+            border: 1px solid var(--gold-muted);
+            color: var(--gold-muted);
+            padding: 12px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: 0.3s;
+            text-transform: uppercase;
+        }
+
+        .vibe-btn:hover {
+            background: var(--gold-muted);
+            color: black;
+            box-shadow: 0 0 15px var(--gold-muted);
+        }
+
+        .coord-display {
+            background: #111;
+            border: 1px solid var(--gold-muted);
+            padding: 15px;
+            margin-top: 10px;
+            font-family: monospace;
+            color: var(--gold-bright);
+        }
+
+        .coord-log {
+            font-size: 14px;
+            color: #888;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* Bulls-eye Marker */
+        .marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--gold-bright);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 10px var(--gold-bright);
+        }
+    </style>
 </head>
 <body>
-    <div class="master-container">
-        <header class="vibe-header">
-            <div class="logo">VIBE JIVER</div>
-            <nav class="status-bar">SYSTEM READY | PHASE 1: FOUNDATION</nav>
-        </header>
 
-        <main class="vibe-workspace">
-            <aside class="tool-belt">
-                <button class="tool-btn active">Bulls-Eye Plotter</button>
-                <button class="tool-btn">Vibe Mapper</button>
-                <button class="tool-btn">Code Forge</button>
-                <button class="tool-btn">PWA Packager</button>
-            </aside>
+    <header>
+        <div class="logo">VIBE JIVER</div>
+        <div id="status" style="font-size: 14px; color: var(--gold-muted);">READY: DROP IMAGE</div>
+    </header>
 
-            <section class="canvas-area">
-                <div class="canvas-placeholder">
-                    <h2>READY FOR INPUT</h2>
-                    <p>Load your UI design to begin mapping features.</p>
-                </div>
-            </section>
+    <div class="main-layout">
+        <aside>
+            <button class="vibe-btn" onclick="resetCanvas()">Clear Canvas</button>
+            <p style="font-size: 14px; color: #666;">Drag an image into the center to start mapping coordinates.</p>
+        </aside>
 
-            <aside class="inspector">
-                <h3>COORDINATE LOG</h3>
-                <div id="coord-list" class="data-feed">
-                    </div>
-            </aside>
-        </main>
+        <section class="canvas" id="canvas-area">
+            <div id="drop-zone">
+                <p id="placeholder-text">DROP UI IMAGE HERE</p>
+                <img id="uploaded-image" draggable="false">
+            </div>
+        </section>
+
+        <aside class="inspector">
+            <h3 style="color: var(--gold-muted); font-size: 18px; margin-top: 0;">INSPECTOR</h3>
+            <div class="coord-display">
+                X: <span id="val-x">0</span><br>
+                Y: <span id="val-y">0</span>
+            </div>
+            <p style="font-size: 12px; color: #666; margin-top: 20px;">LAST CLICK:</p>
+            <div class="coord-log" id="coord-log">
+                No clicks recorded.
+            </div>
+        </aside>
     </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const img = document.getElementById('uploaded-image');
+        const placeholder = document.getElementById('placeholder-text');
+        const canvasArea = document.getElementById('canvas-area');
+        const valX = document.getElementById('val-x');
+        const valY = document.getElementById('val-y');
+        const log = document.getElementById('coord-log');
+        const status = document.getElementById('status');
+
+        // Drag & Drop Logic
+        canvasArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        canvasArea.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        canvasArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    img.src = event.target.result;
+                    img.style.display = 'block';
+                    placeholder.style.display = 'none';
+                    status.innerText = "SYSTEM: MAPPING ACTIVE";
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Coordinate Mapping Logic
+        canvasArea.addEventListener('mousedown', (e) => {
+            if (img.style.display === 'block') {
+                const rect = img.getBoundingClientRect();
+                const x = Math.round(e.clientX - rect.left);
+                const y = Math.round(e.clientY - rect.top);
+
+                // Update Display
+                valX.innerText = x;
+                valY.innerText = y;
+
+                // Log entry
+                const time = new Date().toLocaleTimeString();
+                log.innerHTML = `<div>[${time}] X:${x} Y:${y}</div>` + log.innerHTML;
+
+                // Place visual marker
+                const marker = document.createElement('div');
+                marker.className = 'marker';
+                marker.style.left = `${e.clientX + canvasArea.scrollLeft - canvasArea.offsetLeft}px`;
+                marker.style.top = `${e.clientY + canvasArea.scrollTop - canvasArea.offsetTop}px`;
+                // Note: Simplified marker placement for this version
+            }
+        });
+
+        function resetCanvas() {
+            img.src = "";
+            img.style.display = 'none';
+            placeholder.style.display = 'block';
+            log.innerHTML = "No clicks recorded.";
+            valX.innerText = "0";
+            valY.innerText = "0";
+            status.innerText = "READY: DROP IMAGE";
+        }
+    </script>
 </body>
 </html>
