@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIBE JIVER | Plot Finder Alpha</title>
+    <title>VIBE JIVER | Data Harvester Alpha</title>
     <style>
         :root {
             --bg-black: #000000;
@@ -67,7 +67,6 @@
             padding: 20px;
         }
 
-        /* The Canvas / Drop Zone */
         .canvas {
             position: relative;
             display: flex;
@@ -106,9 +105,11 @@
             color: var(--gold-muted);
             padding: 12px;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 16px;
             transition: 0.3s;
             text-transform: uppercase;
+            width: 100%;
+            margin-bottom: 10px;
         }
 
         .vibe-btn:hover {
@@ -124,26 +125,22 @@
             margin-top: 10px;
             font-family: monospace;
             color: var(--gold-bright);
+            position: relative;
         }
 
         .coord-log {
             font-size: 14px;
             color: #888;
             margin-top: 10px;
-            max-height: 200px;
+            max-height: 300px;
             overflow-y: auto;
+            border-top: 1px solid #222;
+            padding-top: 10px;
         }
 
-        /* Bulls-eye Marker */
-        .marker {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--gold-bright);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            box-shadow: 0 0 10px var(--gold-bright);
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #111;
         }
     </style>
 </head>
@@ -169,11 +166,18 @@
 
         <aside class="inspector">
             <h3 style="color: var(--gold-muted); font-size: 18px; margin-top: 0;">INSPECTOR</h3>
+            
             <div class="coord-display">
                 X: <span id="val-x">0</span><br>
                 Y: <span id="val-y">0</span>
             </div>
-            <p style="font-size: 12px; color: #666; margin-top: 20px;">LAST CLICK:</p>
+
+            <div style="margin-top: 15px;">
+                <button class="vibe-btn" onclick="copyCoords()">Copy to Clipboard</button>
+                <button class="vibe-btn" onclick="exportCSV()">Export CSV</button>
+            </div>
+
+            <p style="font-size: 12px; color: #666; margin-top: 20px;">HISTORY LOG:</p>
             <div class="coord-log" id="coord-log">
                 No clicks recorded.
             </div>
@@ -189,17 +193,12 @@
         const valY = document.getElementById('val-y');
         const log = document.getElementById('coord-log');
         const status = document.getElementById('status');
+        
+        let clickHistory = [];
 
-        // Drag & Drop Logic
-        canvasArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
-
-        canvasArea.addEventListener('dragleave', () => {
-            dropZone.classList.remove('dragover');
-        });
-
+        // Drag & Drop
+        canvasArea.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        canvasArea.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
         canvasArea.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('dragover');
@@ -210,41 +209,65 @@
                     img.src = event.target.result;
                     img.style.display = 'block';
                     placeholder.style.display = 'none';
-                    status.innerText = "SYSTEM: MAPPING ACTIVE";
+                    status.innerText = "SYSTEM: HARVESTER ACTIVE";
                 };
                 reader.readAsDataURL(file);
             }
         });
 
-        // Coordinate Mapping Logic
+        // Click Mapping
         canvasArea.addEventListener('mousedown', (e) => {
             if (img.style.display === 'block') {
                 const rect = img.getBoundingClientRect();
                 const x = Math.round(e.clientX - rect.left);
                 const y = Math.round(e.clientY - rect.top);
 
-                // Update Display
                 valX.innerText = x;
                 valY.innerText = y;
 
-                // Log entry
-                const time = new Date().toLocaleTimeString();
-                log.innerHTML = `<div>[${time}] X:${x} Y:${y}</div>` + log.innerHTML;
-
-                // Place visual marker
-                const marker = document.createElement('div');
-                marker.className = 'marker';
-                marker.style.left = `${e.clientX + canvasArea.scrollLeft - canvasArea.offsetLeft}px`;
-                marker.style.top = `${e.clientY + canvasArea.scrollTop - canvasArea.offsetTop}px`;
-                // Note: Simplified marker placement for this version
+                const entry = { x, y, time: new Date().toLocaleTimeString() };
+                clickHistory.unshift(entry);
+                updateLog();
             }
         });
+
+        function updateLog() {
+            if (clickHistory.length === 0) {
+                log.innerHTML = "No clicks recorded.";
+                return;
+            }
+            log.innerHTML = clickHistory.map(item => 
+                `<div class="log-entry">[${item.time}] X: ${item.x}, Y: ${item.y}</div>`
+            ).join('');
+        }
+
+        function copyCoords() {
+            const text = `X: ${valX.innerText}, Y: ${valY.innerText}`;
+            navigator.clipboard.writeText(text);
+            status.innerText = "COPIED TO CLIPBOARD";
+            setTimeout(() => status.innerText = "SYSTEM: HARVESTER ACTIVE", 2000);
+        }
+
+        function exportCSV() {
+            if (clickHistory.length === 0) return;
+            let csvContent = "data:text/csv;charset=utf-8,Time,X,Y\n" 
+                + clickHistory.map(e => `${e.time},${e.x},${e.y}`).join("\n");
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "vibe_jiver_coords.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
 
         function resetCanvas() {
             img.src = "";
             img.style.display = 'none';
             placeholder.style.display = 'block';
-            log.innerHTML = "No clicks recorded.";
+            clickHistory = [];
+            updateLog();
             valX.innerText = "0";
             valY.innerText = "0";
             status.innerText = "READY: DROP IMAGE";
