@@ -1,0 +1,27 @@
+/* BE Ducky v50 - External CSS companion
+   Critical styles are injected inline by ducky.js for zero-flash loading.
+   This file is reserved for non-critical overrides and theme extensions.  */
+
+/* Scrollbar styling for output box */
+#bd-output::-webkit-scrollbar       { width: 4px; height: 4px; }
+#bd-output::-webkit-scrollbar-track { background: #050505; }
+#bd-output::-webkit-scrollbar-thumb { background: #2e2e2e; border-radius: 2px; }
+#bd-output::-webkit-scrollbar-thumb:hover { background: #c5a059; }
+
+.bd-canvas-area::-webkit-scrollbar       { width: 5px; height: 5px; }
+.bd-canvas-area::-webkit-scrollbar-track { background: #050505; }
+.bd-canvas-area::-webkit-scrollbar-thumb { background: #1e1e1e; border-radius: 2px; }
+
+/* Point ring entrance animation */
+.bd-point-ring {
+  animation: bd-point-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes bd-point-in {
+  from { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+}
+
+/* URL input glow on focus */
+.bd-url-input:focus {
+  box-shadow: 0 0 0 1px rgba(197,160,89,0.2), 0 0 12px rgba(197,160,89,0.06);
+}
