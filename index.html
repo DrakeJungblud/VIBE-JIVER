@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIBE JIVER | Target Alpha</title>
+    <title>VIBE JIVER | Precision Alpha</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="ducky.png">
     <meta name="theme-color" content="#c5a059">
@@ -56,8 +56,19 @@
             display: flex; justify-content: center; align-items: center;
         }
 
-        #image-wrapper { position: absolute; transform-origin: 0 0; display: none; z-index: 2; }
-        #uploaded-image { display: block; user-select: none; pointer-events: auto; }
+        #image-wrapper { 
+            position: absolute; 
+            transform-origin: 0 0; 
+            display: none; 
+            z-index: 2; 
+            pointer-events: none; /* Let clicks pass to the container for better math */
+        }
+        
+        #uploaded-image { 
+            display: block; 
+            user-select: none; 
+            pointer-events: auto; 
+        }
 
         #drop-zone-overlay {
             position: absolute; inset: 0;
@@ -109,22 +120,30 @@
             line-height: 1.6;
         }
 
-        .marker {
-            position: absolute; width: 10px; height: 10px;
-            border: 1px solid var(--gold-bright); border-radius: 50%;
-            transform: translate(-50%, -50%); pointer-events: none;
-            box-shadow: 0 0 8px var(--gold-bright);
+        #marker-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
         }
 
-        .marker::after { content: ''; position: absolute; background: var(--gold-bright); width: 1px; height: 20px; left: 4.5px; top: -5px; }
-        .marker::before { content: ''; position: absolute; background: var(--gold-bright); width: 20px; height: 1px; left: -5px; top: 4.5px; }
+        .marker {
+            position: absolute; width: 12px; height: 12px;
+            border: 1px solid var(--gold-bright); border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px var(--gold-bright);
+            z-index: 10;
+        }
+
+        .marker::after { content: ''; position: absolute; background: var(--gold-bright); width: 1px; height: 24px; left: 5.5px; top: -6px; }
+        .marker::before { content: ''; position: absolute; background: var(--gold-bright); width: 24px; height: 1px; left: -6px; top: 5.5px; }
 
         .coord-log {
             font-size: 13px; color: #888; margin-top: 10px;
             max-height: 250px; overflow-y: auto; border-top: 1px solid #222; padding-top: 10px;
         }
 
-        .log-entry { padding: 6px 0; border-bottom: 1px solid #111; border-left: 2px solid transparent; transition: 0.2s; }
+        .log-entry { padding: 8px 0; border-bottom: 1px solid #111; border-left: 2px solid transparent; transition: 0.2s; }
         .log-entry:hover { border-left-color: var(--gold-muted); padding-left: 5px; color: var(--gold-bright); }
         
         #file-input { display: none; }
@@ -134,7 +153,7 @@
 
     <header>
         <div class="logo">VIBE JIVER</div>
-        <div id="status" style="font-size: 14px; color: var(--gold-muted); letter-spacing: 2px;">SYSTEM READY</div>
+        <div id="status" style="font-size: 14px; color: var(--gold-muted); letter-spacing: 2px;">CALIBRATED</div>
     </header>
 
     <div class="main-layout">
@@ -143,7 +162,7 @@
             <button class="vibe-btn" onclick="document.getElementById('file-input').click()">Load Local Image</button>
             <button class="vibe-btn" onclick="resetCanvas()">Clear All</button>
             <p style="font-size: 11px; color: #333; margin-top: auto; text-align: center; letter-spacing: 3px;">
-                BULLS-EYE DUCKY // PROJECT ALPHA
+                BULLS-EYE DUCKY // PRECISION ALPHA
             </p>
         </aside>
 
@@ -169,7 +188,7 @@
                 <button class="vibe-btn" onclick="copyCoords()">Copy to Clipboard</button>
                 <button class="vibe-btn" onclick="exportCSV()">Export CSV</button>
             </div>
-            <div class="coord-log" id="coord-log">No target data.</div>
+            <div class="coord-log" id="coord-log">Ready for scan.</div>
         </aside>
     </div>
 
@@ -189,9 +208,7 @@
 
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW Registered'))
-                .catch(err => console.log('SW Failed', err));
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Failed', err));
             });
         }
 
@@ -216,7 +233,6 @@
                     overlay.style.opacity = '0';
                     setTimeout(() => overlay.style.display = 'none', 600);
                     img.onload = () => { resetZoom(); };
-                    status.innerText = "LOCKED ON TARGET";
                 };
                 reader.readAsDataURL(file);
             }
@@ -235,25 +251,35 @@
 
         container.addEventListener('wheel', (e) => {
             e.preventDefault();
-            const xs = (e.clientX - posX - container.offsetLeft) / scale;
-            const ys = (e.clientY - posY - container.offsetTop) / scale;
+            const rect = container.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const xs = (mouseX - posX) / scale;
+            const ys = (mouseY - posY) / scale;
+
             const delta = -e.deltaY;
             (delta > 0) ? (scale *= 1.1) : (scale /= 1.1);
-            posX = e.clientX - xs * scale - container.offsetLeft;
-            posY = e.clientY - ys * scale - container.offsetTop;
+
+            posX = mouseX - xs * scale;
+            posY = mouseY - ys * scale;
             updateTransform();
         }, { passive: false });
 
         let isPanning = false;
         container.addEventListener('mousedown', (e) => {
-            if (e.altKey) { isPanning = true; return; }
+            if (e.altKey || e.button === 1) { isPanning = true; return; }
+            
             if (wrapper.style.display === 'block') {
-                const x = Math.round((e.clientX - posX - container.offsetLeft) / scale);
-                const y = Math.round((e.clientY - posY - container.offsetTop) / scale);
+                const rect = img.getBoundingClientRect();
                 
-                if (x >= 0 && x <= img.width && y >= 0 && y <= img.height) {
-                    const pctX = ((x / img.width) * 100).toFixed(2);
-                    const pctY = ((y / img.height) * 100).toFixed(2);
+                // Absolute pixel on the image regardless of zoom
+                const x = Math.round((e.clientX - rect.left) / scale);
+                const y = Math.round((e.clientY - rect.top) / scale);
+                
+                if (x >= 0 && x <= img.naturalWidth && y >= 0 && y <= img.naturalHeight) {
+                    const pctX = ((x / img.naturalWidth) * 100).toFixed(2);
+                    const pctY = ((y / img.naturalHeight) * 100).toFixed(2);
 
                     valPx.innerText = `${x}, ${y}`;
                     valPct.innerText = `${pctX}%, ${pctY}%`;
@@ -286,7 +312,7 @@
         function copyCoords() {
             const txt = `Pixels: ${valPx.innerText} | Percent: ${valPct.innerText}`;
             navigator.clipboard.writeText(txt);
-            status.innerText = "COPIED TO CLIPBOARD"; setTimeout(() => status.innerText = "LOCKED ON TARGET", 2000);
+            status.innerText = "LOCKED"; setTimeout(() => status.innerText = "CALIBRATED", 2000);
         }
 
         function exportCSV() {
