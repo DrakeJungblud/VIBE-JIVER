@@ -105,6 +105,8 @@
             padding: 15px; margin-top: 10px; font-family: monospace;
             color: var(--gold-bright);
             box-shadow: inset 0 0 10px rgba(197, 160, 89, 0.1);
+            font-size: 14px;
+            line-height: 1.6;
         }
 
         .marker {
@@ -118,11 +120,11 @@
         .marker::before { content: ''; position: absolute; background: var(--gold-bright); width: 20px; height: 1px; left: -5px; top: 4.5px; }
 
         .coord-log {
-            font-size: 14px; color: #888; margin-top: 10px;
+            font-size: 13px; color: #888; margin-top: 10px;
             max-height: 250px; overflow-y: auto; border-top: 1px solid #222; padding-top: 10px;
         }
 
-        .log-entry { padding: 4px 0; border-bottom: 1px solid #111; border-left: 2px solid transparent; transition: 0.2s; }
+        .log-entry { padding: 6px 0; border-bottom: 1px solid #111; border-left: 2px solid transparent; transition: 0.2s; }
         .log-entry:hover { border-left-color: var(--gold-muted); padding-left: 5px; color: var(--gold-bright); }
         
         #file-input { display: none; }
@@ -140,7 +142,6 @@
             <input type="file" id="file-input" accept="image/*">
             <button class="vibe-btn" onclick="document.getElementById('file-input').click()">Load Local Image</button>
             <button class="vibe-btn" onclick="resetCanvas()">Clear All</button>
-            
             <p style="font-size: 11px; color: #333; margin-top: auto; text-align: center; letter-spacing: 3px;">
                 BULLS-EYE DUCKY // PROJECT ALPHA
             </p>
@@ -161,14 +162,14 @@
         <aside class="inspector">
             <h3 style="color: var(--gold-muted); font-size: 18px; margin-top: 0; letter-spacing: 2px;">INSPECTOR</h3>
             <div class="coord-display">
-                X: <span id="val-x">0</span><br>
-                Y: <span id="val-y">0</span>
+                PIXELS: <span id="val-px">0, 0</span><br>
+                PERCENT: <span id="val-pct">0%, 0%</span>
             </div>
             <div style="margin-top: 15px;">
                 <button class="vibe-btn" onclick="copyCoords()">Copy to Clipboard</button>
                 <button class="vibe-btn" onclick="exportCSV()">Export CSV</button>
             </div>
-            <div class="coord-log" id="coord-log">No clicks recorded.</div>
+            <div class="coord-log" id="coord-log">No target data.</div>
         </aside>
     </div>
 
@@ -177,8 +178,8 @@
         const wrapper = document.getElementById('image-wrapper');
         const img = document.getElementById('uploaded-image');
         const markerLayer = document.getElementById('marker-layer');
-        const valX = document.getElementById('val-x');
-        const valY = document.getElementById('val-y');
+        const valPx = document.getElementById('val-px');
+        const valPct = document.getElementById('val-pct');
         const log = document.getElementById('coord-log');
         const status = document.getElementById('status');
         const fileInput = document.getElementById('file-input');
@@ -186,12 +187,11 @@
 
         let scale = 1, posX = 0, posY = 0, clickHistory = [];
 
-        // --- PWA Service Worker Registration ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW Registered', reg))
-                .catch(err => console.log('SW Registration Failed', err));
+                .then(reg => console.log('SW Registered'))
+                .catch(err => console.log('SW Failed', err));
             });
         }
 
@@ -252,8 +252,14 @@
                 const y = Math.round((e.clientY - posY - container.offsetTop) / scale);
                 
                 if (x >= 0 && x <= img.width && y >= 0 && y <= img.height) {
-                    valX.innerText = x; valY.innerText = y;
-                    clickHistory.unshift({ x, y, time: new Date().toLocaleTimeString() });
+                    const pctX = ((x / img.width) * 100).toFixed(2);
+                    const pctY = ((y / img.height) * 100).toFixed(2);
+
+                    valPx.innerText = `${x}, ${y}`;
+                    valPct.innerText = `${pctX}%, ${pctY}%`;
+
+                    clickHistory.unshift({ x, y, pctX, pctY, time: new Date().toLocaleTimeString() });
+                    
                     const marker = document.createElement('div');
                     marker.className = 'marker';
                     marker.style.left = `${x}px`;
@@ -274,17 +280,19 @@
         window.addEventListener('mouseup', () => isPanning = false);
 
         function renderLog() {
-            log.innerHTML = clickHistory.map(item => `<div class="log-entry">[${item.time}] X: ${item.x}, Y: ${item.y}</div>`).join('');
+            log.innerHTML = clickHistory.map(item => `<div class="log-entry">[${item.time}]<br>PX: ${item.x}, ${item.y}<br>%: ${item.pctX}, ${item.pctY}</div>`).join('');
         }
 
         function copyCoords() {
-            navigator.clipboard.writeText(`X: ${valX.innerText}, Y: ${valY.innerText}`);
+            const txt = `Pixels: ${valPx.innerText} | Percent: ${valPct.innerText}`;
+            navigator.clipboard.writeText(txt);
             status.innerText = "COPIED TO CLIPBOARD"; setTimeout(() => status.innerText = "LOCKED ON TARGET", 2000);
         }
 
         function exportCSV() {
             if (!clickHistory.length) return;
-            let csv = "data:text/csv;charset=utf-8,Time,X,Y\n" + clickHistory.map(e => `${e.time},${e.x},${e.y}`).join("\n");
+            let csv = "data:text/csv;charset=utf-8,Time,X_px,Y_px,X_pct,Y_pct\n" + 
+                clickHistory.map(e => `${e.time},${e.x},${e.y},${e.pctX},${e.pctY}`).join("\n");
             const link = document.createElement("a");
             link.href = encodeURI(csv);
             link.download = "vibe_jiver_plots.csv";
