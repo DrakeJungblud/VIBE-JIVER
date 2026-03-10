@@ -1,0 +1,21 @@
+{
+  "name": "VIBE JIVER",
+  "short_name": "VibeJiver",
+  "description": "High-precision UI coordinate plotting tool.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#c5a059",
+  "icons": [
+    {
+      "src": "ducky.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "ducky.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
