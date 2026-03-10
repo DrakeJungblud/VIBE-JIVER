@@ -4,17 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VIBE JIVER | HUD Edition</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="ducky.png">
-    <meta name="theme-color" content="#c5a059">
-    
     <style>
         :root {
             --bg-black: #000000;
             --bg-surface: #0a0a0a;
             --gold-muted: #c5a059;
             --gold-bright: #e7c17d;
-            --gold-glow: rgba(197, 160, 89, 0.2);
             --border: #222222;
             --font-main: 20px;
             --rail-width: 60px;
@@ -35,18 +30,16 @@
         #hud-top {
             position: fixed; top: 0; left: var(--rail-width); right: 0;
             height: var(--hud-height);
-            background: rgba(10, 10, 10, 0.9);
-            backdrop-filter: blur(10px);
+            background: rgba(10, 10, 10, 0.95);
             border-bottom: 1px solid var(--gold-muted);
             display: flex; align-items: center; justify-content: space-around;
             padding: 0 20px; z-index: 100;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .hud-stat { display: flex; flex-direction: column; align-items: center; }
         .hud-label { font-size: 10px; color: var(--gold-muted); text-transform: uppercase; letter-spacing: 2px; }
         .hud-value { font-family: monospace; color: var(--gold-bright); font-size: 18px; }
 
-        /* --- THE SLIM ACTION RAIL (LEFT) --- */
+        /* --- SLIM ACTION RAIL (LEFT) --- */
         #action-rail {
             position: fixed; left: 0; top: 0; bottom: 0;
             width: var(--rail-width);
@@ -62,32 +55,29 @@
         .rail-btn {
             width: 45px; height: 45px;
             border: 1px solid var(--gold-muted);
-            background: transparent;
-            color: var(--gold-muted);
-            margin-bottom: 15px;
-            cursor: pointer;
+            background: transparent; color: var(--gold-muted);
+            margin-bottom: 15px; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            transition: 0.3s;
-            flex-shrink: 0;
+            transition: 0.3s; flex-shrink: 0;
         }
         .rail-btn:hover { background: var(--gold-muted); color: #000; box-shadow: 0 0 15px var(--gold-muted); }
         .rail-text { display: none; margin-left: 15px; font-size: 14px; text-transform: uppercase; white-space: nowrap; }
         #action-rail:hover .rail-text { display: inline; }
         #action-rail:hover .rail-btn { width: 190px; justify-content: flex-start; padding-left: 15px; }
 
-        /* --- MAIN WORKSPACE --- */
+        /* --- WORKSPACE --- */
         #workspace {
             position: absolute;
-            top: var(--hud-height); left: var(--rail-width); right: 0; bottom: 0;
+            top: var(--hud-height); left: var(--rail-width); right: 0; bottom: 60px;
             overflow: auto;
-            display: flex; align-items: center; justify-content: center;
+            display: flex; align-items: flex-start; justify-content: center;
             background: radial-gradient(circle, #111 0%, #000 100%);
+            padding: 40px;
         }
 
         #canvas-stack { position: relative; display: none; cursor: none; }
-        #loaded-img { display: block; max-width: none; pointer-events: none; }
+        #loaded-img { display: block; max-width: none; pointer-events: none; border: 1px solid #333; }
         
-        /* Transparent overlays for Grid and Crosshair */
         #grid-canvas, #crosshair-canvas {
             position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
@@ -102,38 +92,37 @@
 
         /* --- MARKERS --- */
         .marker {
-            position: absolute; width: 14px; height: 14px;
-            border: 1px solid var(--gold-bright); border-radius: 50%;
+            position: absolute; width: 12px; height: 12px;
+            border: 2px solid var(--gold-bright); border-radius: 50%;
             transform: translate(-50%, -50%);
-            pointer-events: auto; cursor: pointer;
-            box-shadow: 0 0 10px var(--gold-bright);
+            box-shadow: 0 0 8px var(--gold-bright);
         }
         .marker-label {
-            position: absolute; top: -20px; left: 10px;
+            position: absolute; top: -22px; left: 10px;
             background: var(--gold-muted); color: #000;
             font-size: 10px; font-weight: bold; padding: 2px 5px;
             white-space: nowrap; border-radius: 2px;
         }
 
-        /* --- POINT STRIP (BOTTOM HUD) --- */
+        /* --- POINT STRIP (BOTTOM) --- */
         #point-strip {
             position: fixed; bottom: 0; left: var(--rail-width); right: 0;
-            height: 60px; background: rgba(5,5,5,0.8);
-            border-top: 1px solid var(--border);
+            height: 60px; background: rgba(5,5,5,0.9);
+            border-top: 1px solid var(--gold-muted);
             display: flex; align-items: center; padding: 0 20px;
             gap: 10px; overflow-x: auto; z-index: 100;
         }
         .point-chip {
-            background: #111; border: 1px solid var(--gold-muted);
+            background: #111; border: 1px solid var(--border);
             padding: 5px 12px; font-size: 12px; color: var(--gold-bright);
-            white-space: nowrap; display: flex; align-items: center; gap: 8px;
+            white-space: nowrap; border-radius: 4px;
         }
 
         /* --- EXPORT DRAWER --- */
         #export-drawer {
             position: fixed; right: -400px; top: var(--hud-height); bottom: 0;
             width: 350px; background: #0a0a0a; border-left: 1px solid var(--gold-muted);
-            z-index: 120; transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 120; transition: right 0.4s ease;
             padding: 20px; display: flex; flex-direction: column;
         }
         #export-drawer.open { right: 0; }
@@ -141,21 +130,12 @@
             flex-grow: 1; background: #000; color: var(--gold-bright);
             border: 1px solid var(--border); padding: 10px;
             font-family: monospace; font-size: 12px; margin-bottom: 15px;
-            resize: none;
         }
 
         #drop-overlay {
             position: absolute; inset: 0;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            pointer-events: none;
         }
-        .hero-ducky {
-            width: 300px; border-radius: 50%; border: 4px solid var(--gold-muted);
-            filter: drop-shadow(0 0 20px var(--gold-glow));
-            animation: pulse 4s infinite ease-in-out;
-        }
-        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); opacity: 0.8; } }
-
         #file-input { display: none; }
     </style>
 </head>
@@ -167,25 +147,21 @@
             <span class="hud-value" id="hud-px">0, 0</span>
         </div>
         <div class="hud-stat">
-            <span class="hud-label">Relative Position</span>
+            <span class="hud-label">Scale-Proof %</span>
             <span class="hud-value" id="hud-pct">0.00%, 0.00%</span>
         </div>
-        <div class="hud-stat">
-            <span class="hud-label">Target ID</span>
-            <span class="hud-value" id="hud-id">---</span>
-        </div>
-        <div style="font-size: 12px; color: var(--gold-muted); letter-spacing: 2px;">VIBE JIVER // HUD ALPHA</div>
+        <div style="font-size: 12px; color: var(--gold-muted); letter-spacing: 3px;">VIBE JIVER // STUDIO HUD</div>
     </header>
 
     <nav id="action-rail">
         <button class="rail-btn" onclick="document.getElementById('file-input').click()">
-            🎯 <span class="rail-text">Load Target</span>
+            🎯 <span class="rail-text">Load Image</span>
         </button>
         <button class="rail-btn" onclick="toggleGrid()">
             🌐 <span class="rail-text">Toggle Grid</span>
         </button>
         <button class="rail-btn" onclick="undoLast()">
-            ↩️ <span class="rail-text">Undo Last</span>
+            ↩️ <span class="rail-text">Undo</span>
         </button>
         <button class="rail-btn" onclick="toggleExport()">
             📄 <span class="rail-text">Export CSS</span>
@@ -193,16 +169,12 @@
         <button class="rail-btn" onclick="copyAIPrompt()">
             🤖 <span class="rail-text">AI Prompt</span>
         </button>
-        <button class="rail-btn" onclick="location.reload()" style="margin-top: auto; border-color: #551111; color: #ff5555;">
-            ☢️ <span class="rail-text">Wipe All</span>
-        </button>
-        <div style="font-size: 9px; color: #333; margin-bottom: 15px; transform: rotate(-90deg);">RIFF-SHFTR © 2026</div>
+        <div style="font-size: 9px; color: #444; margin-top: auto; margin-bottom: 15px; transform: rotate(-90deg);">RIFF-SHFTR © 2026</div>
     </nav>
 
     <main id="workspace">
         <div id="drop-overlay">
-            <img src="ducky.png" alt="Mascot" class="hero-ducky" onerror="this.style.display='none'">
-            <p style="color: var(--gold-muted); letter-spacing: 5px; margin-top: 20px;">LOCKED ON TARGET</p>
+            <p style="color: var(--gold-muted); letter-spacing: 5px;">DROP IMAGE TO START</p>
         </div>
 
         <div id="canvas-stack">
@@ -214,14 +186,14 @@
     </main>
 
     <footer id="point-strip">
-        <span style="font-size: 10px; color: var(--gold-muted); white-space: nowrap;">PLOT HISTORY:</span>
-        <div id="strip-inner" style="display: flex; gap: 10px;"></div>
+        <span style="font-size: 10px; color: var(--gold-muted); margin-right: 10px;">HISTORY:</span>
+        <div id="strip-inner" style="display: flex; gap: 8px;"></div>
     </footer>
 
     <div id="export-drawer">
-        <h3 style="color: var(--gold-muted); margin-bottom: 20px;">CSS GENERATOR</h3>
-        <textarea id="css-output" readonly>.target { /* Plot points to generate */ }</textarea>
-        <button class="rail-btn" style="width: 100%;" onclick="copyCSS()">Copy CSS to Clipboard</button>
+        <h3 style="color: var(--gold-muted); margin-bottom: 15px;">PRODUCTION CSS</h3>
+        <textarea id="css-output" readonly></textarea>
+        <button class="rail-btn" style="width: 100%;" onclick="copyCSS()">Copy CSS</button>
         <button class="rail-btn" style="width: 100%; margin-top: 10px;" onclick="toggleExport()">Close</button>
     </div>
 
@@ -240,43 +212,30 @@
         let showGrid = false;
         let imgW = 0, imgH = 0;
 
-        // --- PWA Service Worker ---
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
-            });
-        }
-
-        // --- Image Loading ---
         document.getElementById('file-input').addEventListener('change', e => {
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (event) => {
-                img.src = event.target.result;
+            reader.onload = (ev) => {
+                img.src = ev.target.result;
                 img.onload = () => {
                     imgW = img.naturalWidth;
                     imgH = img.naturalHeight;
-                    setupCanvases();
+                    // Lock internal canvas resolution to raw image pixels
+                    [cCanvas, gCanvas].forEach(c => { c.width = imgW; c.height = imgH; });
                     stack.style.display = 'block';
                     document.getElementById('drop-overlay').style.display = 'none';
+                    drawGrid();
                 };
             };
             reader.readAsDataURL(file);
         });
 
-        function setupCanvases() {
-            [cCanvas, gCanvas].forEach(c => {
-                c.width = imgW;
-                c.height = imgH;
-            });
-            drawGrid();
-        }
-
-        // --- Crosshair Animation ---
+        // Precision Crosshair Math
         mLayer.addEventListener('mousemove', e => {
             if (!imgW) return;
             const rect = mLayer.getBoundingClientRect();
+            // Calculate position relative to the rendered image size
             const x = (e.clientX - rect.left) * (imgW / rect.width);
             const y = (e.clientY - rect.top) * (imgH / rect.height);
             
@@ -287,26 +246,26 @@
         function drawCrosshair(x, y) {
             cCtx.clearRect(0, 0, imgW, imgH);
             cCtx.strokeStyle = '#c5a059';
-            cCtx.lineWidth = 1;
+            cCtx.lineWidth = 2; // Thicker for visibility
             cCtx.beginPath();
-            // Horizontal
             cCtx.moveTo(0, y); cCtx.lineTo(imgW, y);
-            // Vertical
             cCtx.moveTo(x, 0); cCtx.lineTo(x, imgH);
             cCtx.stroke();
-            
-            // Central Target Circle
             cCtx.beginPath();
-            cCtx.arc(x, y, 10, 0, Math.PI * 2);
+            cCtx.arc(x, y, 15, 0, Math.PI * 2);
             cCtx.stroke();
         }
 
         function updateHUD(x, y) {
-            document.getElementById('hud-px').innerText = `${Math.round(x)}, ${Math.round(y)}`;
-            document.getElementById('hud-pct').innerText = `${((x/imgW)*100).toFixed(2)}%, ${((y/imgH)*100).toFixed(2)}%`;
+            const px = Math.round(x);
+            const py = Math.round(y);
+            const pctX = ((x / imgW) * 100).toFixed(2);
+            const pctY = ((y / imgH) * 100).toFixed(2);
+            document.getElementById('hud-px').innerText = `${px}, ${py}`;
+            document.getElementById('hud-pct').innerText = `${pctX}%, ${pctY}%`;
         }
 
-        // --- Targeting Logic ---
+        // Plotting Logic
         mLayer.addEventListener('mousedown', e => {
             if (!imgW) return;
             const rect = mLayer.getBoundingClientRect();
@@ -315,38 +274,33 @@
             
             const p = {
                 id: points.length + 1,
-                x: Math.round(x),
-                y: Math.round(y),
-                pX: ((x/imgW)*100).toFixed(2),
-                pY: ((y/imgH)*100).toFixed(2),
-                label: `Point ${points.length + 1}`
+                pctX: ((x / imgW) * 100).toFixed(2),
+                pctY: ((y / imgH) * 100).toFixed(2),
+                pxX: Math.round(x),
+                pxY: Math.round(y)
             };
             
             points.push(p);
             renderMarkers();
-            updateExport();
         });
 
         function renderMarkers() {
             mLayer.innerHTML = '';
-            const strip = document.getElementById('strip-inner');
-            strip.innerHTML = '';
-
+            document.getElementById('strip-inner').innerHTML = '';
             points.forEach(p => {
-                // On-Image Marker
                 const m = document.createElement('div');
                 m.className = 'marker';
-                m.style.left = `${p.pX}%`;
-                m.style.top = `${p.pY}%`;
-                m.innerHTML = `<span class="marker-label">${p.label}</span>`;
+                m.style.left = `${p.pctX}%`;
+                m.style.top = `${p.pctY}%`;
+                m.innerHTML = `<span class="marker-label">#${p.id}</span>`;
                 mLayer.appendChild(m);
 
-                // HUD Chip
                 const chip = document.createElement('div');
                 chip.className = 'point-chip';
-                chip.innerHTML = `<span>#${p.id}</span> <span>${p.pX}% / ${p.pY}%</span>`;
-                strip.appendChild(chip);
+                chip.innerText = `#${p.id}: ${p.pctX}% / ${p.pctY}%`;
+                document.getElementById('strip-inner').appendChild(chip);
             });
+            updateExport();
         }
 
         function toggleGrid() {
@@ -356,46 +310,32 @@
 
         function drawGrid() {
             gCtx.clearRect(0, 0, imgW, imgH);
-            gCtx.strokeStyle = 'rgba(197, 160, 89, 0.15)';
-            gCtx.lineWidth = 0.5;
-            
-            const step = 50; // 50px grid
-            for(let x = 0; x <= imgW; x += step) {
-                gCtx.moveTo(x, 0); gCtx.lineTo(x, imgH);
-            }
-            for(let y = 0; y <= imgH; y += step) {
-                gCtx.moveTo(0, y); gCtx.lineTo(imgW, y);
-            }
+            gCtx.strokeStyle = 'rgba(197, 160, 89, 0.1)';
+            gCtx.lineWidth = 1;
+            const step = 100;
+            for(let x=0; x<=imgW; x+=step){ gCtx.moveTo(x,0); gCtx.lineTo(x,imgH); }
+            for(let y=0; y<=imgH; y+=step){ gCtx.moveTo(0,y); gCtx.lineTo(imgW,y); }
             gCtx.stroke();
         }
 
-        function undoLast() {
-            points.pop();
-            renderMarkers();
-            updateExport();
-        }
-
-        function toggleExport() {
-            document.getElementById('export-drawer').classList.toggle('open');
-        }
+        function undoLast() { points.pop(); renderMarkers(); }
+        function toggleExport() { document.getElementById('export-drawer').classList.toggle('open'); }
 
         function updateExport() {
-            const css = points.map(p => `.target-${p.id} { left: ${p.pX}%; top: ${p.pY}%; }`).join('\n');
-            document.getElementById('css-output').value = css || '.target { /* Plot to generate */ }';
+            const css = points.map(p => `.point-${p.id} { left: ${p.pctX}%; top: ${p.pctY}%; }`).join('\n');
+            document.getElementById('css-output').value = css;
         }
 
         function copyCSS() {
-            const area = document.getElementById('css-output');
-            navigator.clipboard.writeText(area.value);
-            alert("CSS Copied to Vault.");
+            navigator.clipboard.writeText(document.getElementById('css-output').value);
+            alert("CSS Stored in Clipboard.");
         }
 
         function copyAIPrompt() {
-            if (!points.length) return alert("No target data.");
-            const data = points.map(p => `- Label: ${p.label} at X:${p.pX}%, Y:${p.pY}%`).join('\n');
-            const prompt = `System Architecture Request: I have plotted the following target coordinates on a ${imgW}x${imgH} source image. Generate the UI code to place icons at these percentages:\n\n${data}`;
+            const data = points.map(p => `- ID ${p.id}: X ${p.pctX}%, Y ${p.pctY}%`).join('\n');
+            const prompt = `UI Architecture Task: Use these coordinate percentages to place elements on an image:\n${data}`;
             navigator.clipboard.writeText(prompt);
-            alert("AI Prompt Copied.");
+            alert("AI Prompt Stored.");
         }
     </script>
 </body>
