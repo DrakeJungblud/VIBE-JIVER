@@ -1,21 +1,23 @@
 {
-  "name": "VIBE JIVER",
-  "short_name": "VibeJiver",
-  "description": "High-precision UI coordinate plotting tool.",
-  "start_url": "index.html",
-  "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#c5a059",
+  "short_name": "VIBE JIVER",
+  "name": "VIBE JIVER: Bulls-Eye Alpha",
   "icons": [
     {
       "src": "ducky.png",
+      "type": "image/png",
       "sizes": "192x192",
-      "type": "image/png"
+      "purpose": "any maskable"
     },
     {
       "src": "ducky.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "sizes": "512x512"
     }
-  ]
+  ],
+  "start_url": "./index.html",
+  "background_color": "#000000",
+  "display": "standalone",
+  "scope": "./",
+  "theme_color": "#c5a059",
+  "description": "Professional Target Plotting & Vibe Coding Utility"
 }
