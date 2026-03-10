@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIBE JIVER | Precision Lens Alpha</title>
+    <title>VIBE JIVER | Bulls-Eye Edition</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="ducky.png">
     <meta name="theme-color" content="#c5a059">
@@ -56,200 +56,49 @@
             display: flex; justify-content: center; align-items: center;
         }
 
-        #image-wrapper { position: absolute; transform-origin: 0 0; display: none; }
+        #image-wrapper { position: absolute; transform-origin: 0 0; display: none; z-index: 2; }
         #uploaded-image { display: block; user-select: none; pointer-events: auto; }
 
+        /* The Hero Mascot Backdrop */
         #drop-zone-overlay {
             position: absolute; inset: 0;
-            display: flex; justify-content: center; align-items: center;
-            border: 2px dashed #222; z-index: 5;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 1; transition: opacity 0.6s ease-in-out;
+        }
+
+        .hero-ducky {
+            width: 500px;
+            max-width: 85vw;
+            height: auto;
+            border-radius: 50%;
+            border: 5px solid var(--gold-muted);
+            box-shadow: 0 0 80px rgba(197, 160, 89, 0.25);
+            margin-bottom: 30px;
+            animation: pulse 5s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.85; filter: drop-shadow(0 0 20px rgba(197, 160, 89, 0.4)); }
+            50% { transform: scale(1.03); opacity: 1; filter: drop-shadow(0 0 50px rgba(197, 160, 89, 0.7)); }
+            100% { transform: scale(1); opacity: 0.85; filter: drop-shadow(0 0 20px rgba(197, 160, 89, 0.4)); }
         }
 
         .vibe-btn {
             background: transparent; border: 1px solid var(--gold-muted);
             color: var(--gold-muted); padding: 12px; cursor: pointer;
-            font-size: 16px; transition: 0.3s; text-transform: uppercase;
+            font-size: 16px; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
             width: 100%; margin-bottom: 10px;
+            letter-spacing: 1px;
         }
 
-        .vibe-btn:hover { background: var(--gold-muted); color: black; box-shadow: 0 0 15px var(--gold-muted); }
+        .vibe-btn:hover { 
+            background: var(--gold-muted); 
+            color: black; 
+            box-shadow: 0 0 25px var(--gold-muted); 
+            transform: translateY(-2px);
+        }
 
         .coord-display {
             background: #111; border: 1px solid var(--gold-muted);
-            padding: 15px; margin-top: 10px; font-family: monospace;
-            color: var(--gold-bright);
-        }
-
-        .mascot-container {
-            margin-top: auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            padding-bottom: 20px;
-        }
-
-        .mascot-img {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            border: 2px solid var(--gold-muted);
-            box-shadow: 0 0 20px rgba(197, 160, 89, 0.3);
-            object-fit: cover;
-        }
-
-        .coord-log {
-            font-size: 14px; color: #888; margin-top: 10px;
-            max-height: 250px; overflow-y: auto; border-top: 1px solid #222; padding-top: 10px;
-        }
-
-        .log-entry { padding: 4px 0; border-bottom: 1px solid #111; }
-        #file-input { display: none; }
-    </style>
-</head>
-<body>
-
-    <header>
-        <div class="logo">VIBE JIVER</div>
-        <div id="status" style="font-size: 14px; color: var(--gold-muted);">SYSTEM ONLINE</div>
-    </header>
-
-    <div class="main-layout">
-        <aside>
-            <input type="file" id="file-input" accept="image/*">
-            <button class="vibe-btn" onclick="document.getElementById('file-input').click()">Load Local Image</button>
-            <button class="vibe-btn" onclick="resetCanvas()">Clear All</button>
-            
-            <div class="mascot-container">
-                <img src="ducky.png" alt="Bulls-Eye Ducky" class="mascot-img" onerror="this.style.display='none'">
-                <span style="font-size: 12px; color: var(--gold-muted); letter-spacing: 1px;">TARGET ACQUIRED</span>
-            </div>
-        </aside>
-
-        <section class="canvas-container" id="container">
-            <div id="drop-zone-overlay">
-                <p id="placeholder-text">DROP UI IMAGE HERE</p>
-            </div>
-            <div id="image-wrapper">
-                <img id="uploaded-image" draggable="false">
-            </div>
-        </section>
-
-        <aside class="inspector">
-            <h3 style="color: var(--gold-muted); font-size: 18px; margin-top: 0;">INSPECTOR</h3>
-            <div class="coord-display">
-                X: <span id="val-x">0</span><br>
-                Y: <span id="val-y">0</span>
-            </div>
-            <div style="margin-top: 15px;">
-                <button class="vibe-btn" onclick="copyCoords()">Copy to Clipboard</button>
-                <button class="vibe-btn" onclick="exportCSV()">Export CSV</button>
-            </div>
-            <div class="coord-log" id="coord-log">No clicks recorded.</div>
-        </aside>
-    </div>
-
-    <script>
-        const container = document.getElementById('container');
-        const wrapper = document.getElementById('image-wrapper');
-        const img = document.getElementById('uploaded-image');
-        const valX = document.getElementById('val-x');
-        const valY = document.getElementById('val-y');
-        const log = document.getElementById('coord-log');
-        const status = document.getElementById('status');
-        const fileInput = document.getElementById('file-input');
-
-        let scale = 1, posX = 0, posY = 0, clickHistory = [];
-
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) handleFile(file);
-        });
-
-        container.addEventListener('dragover', (e) => e.preventDefault());
-        container.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const file = e.dataTransfer.files[0];
-            if (file) handleFile(file);
-        });
-
-        function handleFile(file) {
-            if (file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    img.src = event.target.result;
-                    wrapper.style.display = 'block';
-                    document.getElementById('drop-zone-overlay').style.display = 'none';
-                    img.onload = () => { resetZoom(); };
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function resetZoom() {
-            scale = 1; 
-            posX = (container.clientWidth - img.width) / 2; 
-            posY = (container.clientHeight - img.height) / 2;
-            updateTransform();
-        }
-
-        function updateTransform() {
-            wrapper.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
-        }
-
-        container.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const xs = (e.clientX - posX - container.offsetLeft) / scale;
-            const ys = (e.clientY - posY - container.offsetTop) / scale;
-            const delta = -e.deltaY;
-            (delta > 0) ? (scale *= 1.1) : (scale /= 1.1);
-            posX = e.clientX - xs * scale - container.offsetLeft;
-            posY = e.clientY - ys * scale - container.offsetTop;
-            updateTransform();
-        }, { passive: false });
-
-        let isPanning = false;
-        container.addEventListener('mousedown', (e) => {
-            if (e.altKey) { isPanning = true; return; }
-            if (wrapper.style.display === 'block') {
-                const x = Math.round((e.clientX - posX - container.offsetLeft) / scale);
-                const y = Math.round((e.clientY - posY - container.offsetTop) / scale);
-                if (x >= 0 && x <= img.width && y >= 0 && y <= img.height) {
-                    valX.innerText = x; valY.innerText = y;
-                    clickHistory.unshift({ x, y, time: new Date().toLocaleTimeString() });
-                    renderLog();
-                }
-            }
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (isPanning) {
-                posX += e.movementX; posY += e.movementY;
-                updateTransform();
-            }
-        });
-
-        window.addEventListener('mouseup', () => isPanning = false);
-
-        function renderLog() {
-            log.innerHTML = clickHistory.map(item => `<div class="log-entry">[${item.time}] X: ${item.x}, Y: ${item.y}</div>`).join('');
-        }
-
-        function copyCoords() {
-            navigator.clipboard.writeText(`X: ${valX.innerText}, Y: ${valY.innerText}`);
-            status.innerText = "COPIED"; setTimeout(() => status.innerText = "SYSTEM ONLINE", 2000);
-        }
-
-        function exportCSV() {
-            if (!clickHistory.length) return;
-            let csv = "data:text/csv;charset=utf-8,Time,X,Y\n" + clickHistory.map(e => `${e.time},${e.x},${e.y}`).join("\n");
-            const link = document.createElement("a");
-            link.href = encodeURI(csv);
-            link.download = "vibe_jiver_plots.csv";
-            link.click();
-        }
-
-        function resetCanvas() { location.reload(); }
-    </script>
-</body>
-</html>
+            padding: 15px; margin
