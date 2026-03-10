@@ -1,342 +1,1231 @@
+
+
+Writing the definitive Vibe Jiver Studio Shell index.html
+html
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIBE JIVER | HUD Edition</title>
-    <style>
-        :root {
-            --bg-black: #000000;
-            --bg-surface: #0a0a0a;
-            --gold-muted: #c5a059;
-            --gold-bright: #e7c17d;
-            --border: #222222;
-            --font-main: 20px;
-            --rail-width: 60px;
-            --hud-height: 70px;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="VIBE JIVER — Modular Creative Studio Platform">
+<title>VIBE JIVER | Studio</title>
+<link rel="manifest" href="./pwa/manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Oswald:wght@400;500;700&display=swap" rel="stylesheet">
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body, html {
-            width: 100%; height: 100%;
-            background: var(--bg-black);
-            color: #ffffff;
-            font-family: 'Segoe UI', sans-serif;
-            font-size: var(--font-main);
-            overflow: hidden;
-        }
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   VIBE JIVER — STUDIO SHELL  |  index.html
+   Layout :  60px Top HUD  ·  70px Left Rail  ·  #000000 background
+   Bridge :  window.VJ.updateHUD(x,y)  ·  window.VJ.updateRes(w,h)
+   Module :  #bd-module-root  ←  ./modules/beDucky/ducky.js injected at boot
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-        /* --- THE HUD (TOP BAR) --- */
-        #hud-top {
-            position: fixed; top: 0; left: var(--rail-width); right: 0;
-            height: var(--hud-height);
-            background: rgba(10, 10, 10, 0.95);
-            border-bottom: 1px solid var(--gold-muted);
-            display: flex; align-items: center; justify-content: space-around;
-            padding: 0 20px; z-index: 100;
-        }
-        .hud-stat { display: flex; flex-direction: column; align-items: center; }
-        .hud-label { font-size: 10px; color: var(--gold-muted); text-transform: uppercase; letter-spacing: 2px; }
-        .hud-value { font-family: monospace; color: var(--gold-bright); font-size: 18px; }
+/* ── TOKEN MAP ─────────────────────────────────────────────────────────── */
+:root {
+  /* Core */
+  --bg:            #000000;
+  --surface-1:     #080808;
+  --surface-2:     #0d0d0d;
+  --surface-3:     #141414;
+  --border-faint:  #181818;
+  --border-mid:    #222222;
+  --border-strong: #2e2e2e;
 
-        /* --- SLIM ACTION RAIL (LEFT) --- */
-        #action-rail {
-            position: fixed; left: 0; top: 0; bottom: 0;
-            width: var(--rail-width);
-            background: #050505;
-            border-right: 1px solid var(--border);
-            display: flex; flex-direction: column; align-items: center;
-            padding-top: 20px; z-index: 110;
-            transition: width 0.3s ease;
-            overflow: hidden;
-        }
-        #action-rail:hover { width: 220px; background: #0a0a0a; }
-        
-        .rail-btn {
-            width: 45px; height: 45px;
-            border: 1px solid var(--gold-muted);
-            background: transparent; color: var(--gold-muted);
-            margin-bottom: 15px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: 0.3s; flex-shrink: 0;
-        }
-        .rail-btn:hover { background: var(--gold-muted); color: #000; box-shadow: 0 0 15px var(--gold-muted); }
-        .rail-text { display: none; margin-left: 15px; font-size: 14px; text-transform: uppercase; white-space: nowrap; }
-        #action-rail:hover .rail-text { display: inline; }
-        #action-rail:hover .rail-btn { width: 190px; justify-content: flex-start; padding-left: 15px; }
+  /* Gold system — Muted Gold #c5a059 as base */
+  --gold:          #c5a059;
+  --gold-bright:   #e2b96f;
+  --gold-dim:      #8a6c38;
+  --gold-ghost:    rgba(197,160,89,0.07);
+  --gold-glow:     rgba(197,160,89,0.18);
 
-        /* --- WORKSPACE --- */
-        #workspace {
-            position: absolute;
-            top: var(--hud-height); left: var(--rail-width); right: 0; bottom: 60px;
-            overflow: auto;
-            display: flex; align-items: flex-start; justify-content: center;
-            background: radial-gradient(circle, #111 0%, #000 100%);
-            padding: 40px;
-        }
+  /* Accents */
+  --green:         #00e87a;
+  --red:           #ff3535;
+  --blue:          #4db8ff;
 
-        #canvas-stack { position: relative; display: none; cursor: none; }
-        #loaded-img { display: block; max-width: none; pointer-events: none; border: 1px solid #333; }
-        
-        #grid-canvas, #crosshair-canvas {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
-            pointer-events: none;
-        }
+  /* Text */
+  --text:          #d8d8d8;
+  --text-dim:      #666666;
+  --text-faint:    #333333;
 
-        #markers-layer {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
-            pointer-events: auto;
-        }
+  /* Layout — the 3 required measurements */
+  --hud-h:         60px;
+  --rail-w:        70px;
+  --bar-h:         24px;
 
-        /* --- MARKERS --- */
-        .marker {
-            position: absolute; width: 12px; height: 12px;
-            border: 2px solid var(--gold-bright); border-radius: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 8px var(--gold-bright);
-        }
-        .marker-label {
-            position: absolute; top: -22px; left: 10px;
-            background: var(--gold-muted); color: #000;
-            font-size: 10px; font-weight: bold; padding: 2px 5px;
-            white-space: nowrap; border-radius: 2px;
-        }
+  /* Typography */
+  --f-main:        'Rajdhani', sans-serif;
+  --f-mono:        'Share Tech Mono', monospace;
+  --f-display:     'Oswald', sans-serif;
+}
 
-        /* --- POINT STRIP (BOTTOM) --- */
-        #point-strip {
-            position: fixed; bottom: 0; left: var(--rail-width); right: 0;
-            height: 60px; background: rgba(5,5,5,0.9);
-            border-top: 1px solid var(--gold-muted);
-            display: flex; align-items: center; padding: 0 20px;
-            gap: 10px; overflow-x: auto; z-index: 100;
-        }
-        .point-chip {
-            background: #111; border: 1px solid var(--border);
-            padding: 5px 12px; font-size: 12px; color: var(--gold-bright);
-            white-space: nowrap; border-radius: 4px;
-        }
+/* ── RESET ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+}
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--f-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+img { display: block; }
 
-        /* --- EXPORT DRAWER --- */
-        #export-drawer {
-            position: fixed; right: -400px; top: var(--hud-height); bottom: 0;
-            width: 350px; background: #0a0a0a; border-left: 1px solid var(--gold-muted);
-            z-index: 120; transition: right 0.4s ease;
-            padding: 20px; display: flex; flex-direction: column;
-        }
-        #export-drawer.open { right: 0; }
-        textarea {
-            flex-grow: 1; background: #000; color: var(--gold-bright);
-            border: 1px solid var(--border); padding: 10px;
-            font-family: monospace; font-size: 12px; margin-bottom: 15px;
-        }
+/* ═══════════════════════════════════════════════════════════════════════════
+   ① TOP HUD — 60px, fixed, spans full width except where the Rail sits
+   ═══════════════════════════════════════════════════════════════════════════ */
+#vj-hud {
+  position: fixed;
+  top: 0; left: var(--rail-w); right: 0;
+  height: var(--hud-h);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-mid);
+  display: flex;
+  align-items: center;
+  padding: 0 22px;
+  gap: 0;
+  z-index: 400;
+  /* Scanline grain — purely aesthetic, no performance cost */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(255,255,255,0.006) 3px,
+      rgba(255,255,255,0.006) 4px
+    );
+}
 
-        #drop-overlay {
-            position: absolute; inset: 0;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        #file-input { display: none; }
-    </style>
+/* ── HUD: Brand block ── */
+.hud-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-right: 22px;
+  border-right: 1px solid var(--border-mid);
+  margin-right: 22px;
+  flex-shrink: 0;
+  user-select: none;
+}
+.hud-duck {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1.5px solid var(--gold);
+  box-shadow: 0 0 14px rgba(197,160,89,0.4);
+  flex-shrink: 0;
+  background: var(--surface-3);
+}
+.hud-duck img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+.hud-brand-text { display: flex; flex-direction: column; gap: 2px; }
+.hud-brand-title {
+  font-family: var(--f-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  line-height: 1;
+  /* idle Giggle — very gentle perpetual animation */
+  animation: giggle-idle 10s ease-in-out 2s infinite;
+}
+.hud-brand-sub {
+  font-family: var(--f-mono);
+  font-size: 0.48rem;
+  color: var(--gold-dim);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+}
+
+/* ── HUD: Data readouts ──
+   Both use 20px Share Tech Mono as spec'd                              */
+.hud-readout {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 20px;
+  border-right: 1px solid var(--border-faint);
+  height: 100%;
+  min-width: 140px;
+  flex-shrink: 0;
+}
+.hud-readout-label {
+  font-family: var(--f-mono);
+  font-size: 0.46rem;
+  color: var(--gold);         /* ← Muted Gold #c5a059 labels */
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.hud-readout-value {
+  font-family: var(--f-mono);
+  font-size: 20px;            /* ← required: 20px Share Tech Mono */
+  color: var(--gold-bright);
+  letter-spacing: 0.5px;
+  line-height: 1;
+  transition: color 0.1s;
+  will-change: contents;
+}
+
+/* Flash pulse on value update */
+.hud-readout-value.vj-flash {
+  animation: hud-value-flash 0.22s ease forwards;
+}
+
+/* ── HUD: Right cluster ── */
+.hud-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.hud-module-tag {
+  font-family: var(--f-mono);
+  font-size: 0.58rem;
+  color: var(--gold);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  border: 1px solid rgba(197,160,89,0.2);
+  padding: 3px 9px;
+  border-radius: 2px;
+  opacity: 0;
+  transform: translateX(8px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+.hud-module-tag.on {
+  opacity: 1;
+  transform: translateX(0);
+}
+.hud-live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  transition: background 0.4s, box-shadow 0.4s;
+  flex-shrink: 0;
+}
+.hud-live-dot.live {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(0,232,122,0.7);
+  animation: dot-pulse 2.8s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ② LEFT RAIL — 70px wide, full height, expands on hover to show labels
+   ═══════════════════════════════════════════════════════════════════════════ */
+#vj-rail {
+  position: fixed;
+  top: 0; left: 0; bottom: var(--bar-h);
+  width: var(--rail-w);
+  background: var(--surface-1);
+  border-right: 1px solid var(--border-mid);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 12px;
+  z-index: 500;
+  overflow: hidden;
+  transition: width 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+              background 0.2s;
+}
+#vj-rail:hover {
+  width: 195px;
+  background: var(--surface-2);
+}
+
+/* Rail logo/duck */
+.rail-logo-wrap {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1.5px solid var(--gold-dim);
+  box-shadow: 0 0 9px rgba(197,160,89,0.25);
+  margin-bottom: 8px;
+  flex-shrink: 0;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+.rail-logo-wrap:hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 16px rgba(197,160,89,0.5);
+}
+.rail-logo-wrap img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.rail-sep {
+  width: calc(100% - 18px);
+  height: 1px;
+  background: var(--border-faint);
+  margin: 5px 0;
+  flex-shrink: 0;
+}
+
+/* Rail button */
+.rail-btn {
+  width: 100%; height: 46px;
+  background: transparent;
+  border-left: 2px solid transparent;
+  color: var(--gold-dim);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: all 0.17s;
+  position: relative;
+  overflow: hidden;
+}
+.rail-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gold-ghost);
+  opacity: 0;
+  transition: opacity 0.17s;
+}
+.rail-btn:hover::after { opacity: 1; }
+.rail-btn:hover { color: var(--gold-bright); }
+.rail-btn.active {
+  border-left-color: var(--gold);
+  color: var(--gold-bright);
+  background: var(--gold-glow);
+}
+.rail-btn-icon {
+  width: 70px;   /* always visible — fills collapsed width */
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  text-align: center;
+  transition: transform 0.17s;
+  z-index: 1;
+}
+.rail-btn:hover .rail-btn-icon { transform: scale(1.18); }
+.rail-btn-label {
+  font-family: var(--f-display);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity 0.22s 0.04s, transform 0.22s 0.04s;
+  pointer-events: none;
+  z-index: 1;
+}
+#vj-rail:hover .rail-btn-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+.rail-btn-badge {
+  position: absolute;
+  right: 10px;
+  font-family: var(--f-mono);
+  font-size: 0.4rem;
+  padding: 1px 4px;
+  border-radius: 2px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.22s;
+  z-index: 1;
+}
+#vj-rail:hover .rail-btn-badge { opacity: 1; }
+.rail-btn-badge.live-badge  { color: var(--green); background: rgba(0,232,122,0.1); border: 1px solid rgba(0,232,122,0.2); }
+.rail-btn-badge.soon-badge  { color: #444; background: rgba(255,255,255,0.03); border: 1px solid #1e1e1e; }
+
+.rail-footer-credit {
+  margin-top: auto;
+  margin-bottom: 8px;
+  font-family: var(--f-mono);
+  font-size: 0.42rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+  letter-spacing: 1px;
+  transform: rotate(-90deg);
+  transition: transform 0.26s, font-size 0.2s, color 0.2s;
+}
+#vj-rail:hover .rail-footer-credit {
+  transform: none;
+  font-size: 0.48rem;
+  color: #2e2e2e;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ③ WORKSPACE — sits below HUD and right of Rail
+   ═══════════════════════════════════════════════════════════════════════════ */
+#vj-workspace {
+  position: fixed;
+  top: var(--hud-h);
+  left: var(--rail-w);
+  right: 0;
+  bottom: var(--bar-h);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* ── Panel system ── */
+.vj-panel {
+  position: absolute;
+  inset: 0;
+  display: none;
+  opacity: 0;
+}
+.vj-panel.vj-panel--visible {
+  display: flex;
+  flex-direction: column;
+}
+.vj-panel.vj-panel--in {
+  animation: panel-enter 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.vj-panel.vj-panel--out {
+  animation: panel-exit 0.2s ease forwards;
+}
+
+/* ─── MODULE INJECTION ROOT ───────────────────────────────────────────────
+   BE Ducky (and all future modules) are injected here.
+   ducky.js builds its DOM inside this element.                           */
+#bd-module-root {
+  position: absolute;
+  inset: 0;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+#bd-module-root.vj-mod--active {
+  display: block;
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ARTWORK CONTAINER — blur(10px) → blur(0) SNAP
+   Any <img> inside .vj-artwork will start blurred and snap sharp on load.
+   Add class "vj-artwork__img--loaded" (via JS) to trigger the snap.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.vj-artwork {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+}
+.vj-artwork__img {
+  display: block;
+  /* Start state: blurred + very slightly scaled up */
+  filter: blur(10px);
+  transform: scale(1.015);
+  /* Snap transition — fast ease-out so it feels physical */
+  transition:
+    filter   0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.vj-artwork__img.vj-artwork__img--loaded {
+  /* End state: perfectly sharp */
+  filter: blur(0px);
+  transform: scale(1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WELCOME PANEL
+   ═══════════════════════════════════════════════════════════════════════════ */
+#panel-welcome {
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 48%, rgba(197,160,89,0.05) 0%, transparent 68%),
+    radial-gradient(circle, rgba(197,160,89,0.06) 1px, transparent 1px) 0 0 / 30px 30px,
+    var(--bg);
+}
+
+.welcome-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.welcome-eyebrow {
+  font-family: var(--f-mono);
+  font-size: 0.56rem;
+  color: var(--gold-dim);
+  letter-spacing: 7px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  opacity: 0;
+  animation: fade-up 0.5s 0.1s ease forwards;
+}
+
+/* Title — letters are individual <span>s so each can Giggle */
+.welcome-title {
+  font-family: var(--f-display);
+  font-size: clamp(3rem, 6.5vw, 5.5rem);
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 10px;
+  text-transform: uppercase;
+  line-height: 1;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 0;
+}
+.welcome-title__letter {
+  display: inline-block;
+  opacity: 0;
+  transform: scale(0.6) rotate(-8deg);
+  /* Each letter gets a staggered giggle-in animation */
+  animation: giggle-in 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.welcome-sub {
+  font-family: var(--f-mono);
+  font-size: 0.6rem;
+  color: var(--gold-dim);
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  margin-bottom: 48px;
+  opacity: 0;
+  animation: fade-up 0.5s 0.6s ease forwards;
+}
+
+/* Module cards grid */
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 11px;
+  width: min(840px, 88vw);
+  opacity: 0;
+  animation: fade-up 0.5s 0.72s ease forwards;
+}
+
+.module-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-mid);
+  border-radius: 5px;
+  padding: 18px 16px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background   0.2s,
+    transform    0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
+    box-shadow   0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  position: relative;
+  overflow: hidden;
+}
+/* Top shimmer line on hover */
+.module-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 50%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.module-card:hover {
+  border-color: var(--gold);
+  background: rgba(197,160,89,0.035);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.65), 0 0 0 1px rgba(197,160,89,0.12);
+}
+.module-card:hover::before { opacity: 1; }
+.module-card--live { border-color: rgba(197,160,89,0.28); }
+
+.card-icon  { font-size: 1.5rem; line-height: 1; }
+.card-title {
+  font-family: var(--f-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+}
+.card-desc {
+  font-family: var(--f-mono);
+  font-size: 0.56rem;
+  color: #4a4a4a;
+  line-height: 1.75;
+}
+.card-badge {
+  font-family: var(--f-mono);
+  font-size: 0.46rem;
+  padding: 2px 6px;
+  border-radius: 2px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  align-self: flex-start;
+  margin-top: auto;
+}
+.card-badge--live { color: var(--green); background: rgba(0,232,122,0.1); border: 1px solid rgba(0,232,122,0.22); }
+.card-badge--soon { color: #3a3a3a; background: rgba(255,255,255,0.02); border: 1px solid #1e1e1e; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BOTTOM STATUS BAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+#vj-statusbar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: var(--bar-h);
+  background: var(--surface-1);
+  border-top: 1px solid var(--border-faint);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  z-index: 400;
+  font-family: var(--f-mono);
+  font-size: 0.52rem;
+  color: var(--text-faint);
+  gap: 0;
+}
+.status-cell {
+  padding: 0 12px;
+  border-right: 1px solid var(--border-faint);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.status-cell:first-child { padding-left: 0; }
+.status-cell .hud-live-dot { width: 5px; height: 5px; }
+#vj-status-tail { margin-left: auto; color: var(--gold-dim); border-right: none; padding-right: 0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL TOAST
+   ═══════════════════════════════════════════════════════════════════════════ */
+#vj-toast {
+  position: fixed;
+  bottom: 38px;
+  left: 50%;
+  transform: translateX(-50%) translateY(14px);
+  background: var(--surface-3);
+  border: 1px solid var(--gold);
+  color: var(--gold-bright);
+  font-family: var(--f-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.5px;
+  padding: 8px 20px;
+  border-radius: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.24s cubic-bezier(0.34, 1.5, 0.64, 1);
+  z-index: 9000;
+  white-space: nowrap;
+  box-shadow: 0 4px 28px rgba(0,0,0,0.8);
+}
+#vj-toast.vj-toast--show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KEYFRAMES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Panel transitions */
+@keyframes panel-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes panel-exit {
+  from { opacity: 1; transform: translateY(0);    }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+
+/* Utility */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ── GIGGLE-IN: used on welcome title letters and panel headings ──────────
+   Letters spring in from a scaled-down rotated state.                    */
+@keyframes giggle-in {
+  0%   { opacity: 0; transform: scale(0.6)  rotate(-8deg); }
+  55%  { opacity: 1; transform: scale(1.08) rotate( 2deg); }
+  75%  { transform: scale(0.96) rotate(-1deg); }
+  90%  { transform: scale(1.02) rotate( 0.4deg); }
+  100% { opacity: 1; transform: scale(1)    rotate( 0deg); }
+}
+
+/* ── GIGGLE-TRIGGER: applied via JS class on panel switch ────────────────
+   Snaps the title element with a quick wobble then settles.              */
+@keyframes giggle-trigger {
+  0%   { transform: scale(1)    rotate( 0deg);   }
+  12%  { transform: scale(1.07) rotate(-1.8deg); }
+  28%  { transform: scale(0.96) rotate( 1.2deg); }
+  46%  { transform: scale(1.03) rotate(-0.6deg); }
+  64%  { transform: scale(0.99) rotate( 0.3deg); }
+  82%  { transform: scale(1.01) rotate(-0.1deg); }
+  100% { transform: scale(1)    rotate( 0deg);   }
+}
+.vj-giggle {
+  /* Class toggled by VJ.switchPanel() */
+  animation: giggle-trigger 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) forwards !important;
+}
+
+/* ── GIGGLE-IDLE: perpetual gentle shimmy on the HUD brand title ─────── */
+@keyframes giggle-idle {
+  0%, 85%, 100% { transform: none; }
+  88%  { transform: skewX(-0.7deg) scale(1.003); }
+  91%  { transform: skewX( 0.7deg) scale(1.003); }
+  94%  { transform: skewX(-0.3deg); }
+  97%  { transform: skewX( 0.2deg); }
+}
+
+/* HUD value flash */
+@keyframes hud-value-flash {
+  0%   { color: var(--gold-bright); }
+  35%  { color: #ffffff; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+  100% { color: var(--gold-bright); }
+}
+
+/* Live dot pulse */
+@keyframes dot-pulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(0,232,122,0.5); }
+  50%      { box-shadow: 0 0 12px rgba(0,232,122,0.9), 0 0 22px rgba(0,232,122,0.25); }
+}
+</style>
 </head>
 <body>
 
-    <header id="hud-top">
-        <div class="hud-stat">
-            <span class="hud-label">Source Pixels</span>
-            <span class="hud-value" id="hud-px">0, 0</span>
-        </div>
-        <div class="hud-stat">
-            <span class="hud-label">Scale-Proof %</span>
-            <span class="hud-value" id="hud-pct">0.00%, 0.00%</span>
-        </div>
-        <div style="font-size: 12px; color: var(--gold-muted); letter-spacing: 3px;">VIBE JIVER // STUDIO HUD</div>
-    </header>
+<!-- ═══════════════════════════════════════════════════════════════════════
+     GLOBAL TOAST
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div id="vj-toast" role="status" aria-live="polite"></div>
 
-    <nav id="action-rail">
-        <button class="rail-btn" onclick="document.getElementById('file-input').click()">
-            🎯 <span class="rail-text">Load Image</span>
-        </button>
-        <button class="rail-btn" onclick="toggleGrid()">
-            🌐 <span class="rail-text">Toggle Grid</span>
-        </button>
-        <button class="rail-btn" onclick="undoLast()">
-            ↩️ <span class="rail-text">Undo</span>
-        </button>
-        <button class="rail-btn" onclick="toggleExport()">
-            📄 <span class="rail-text">Export CSS</span>
-        </button>
-        <button class="rail-btn" onclick="copyAIPrompt()">
-            🤖 <span class="rail-text">AI Prompt</span>
-        </button>
-        <div style="font-size: 9px; color: #444; margin-top: auto; margin-bottom: 15px; transform: rotate(-90deg);">RIFF-SHFTR © 2026</div>
-    </nav>
 
-    <main id="workspace">
-        <div id="drop-overlay">
-            <p style="color: var(--gold-muted); letter-spacing: 5px;">DROP IMAGE TO START</p>
-        </div>
+<!-- ═══════════════════════════════════════════════════════════════════════
+     ① TOP HUD — 60px
+     ═══════════════════════════════════════════════════════════════════════ -->
+<header id="vj-hud" role="banner">
 
-        <div id="canvas-stack">
-            <img id="loaded-img" draggable="false">
-            <canvas id="grid-canvas"></canvas>
-            <div id="markers-layer"></div>
-            <canvas id="crosshair-canvas"></canvas>
-        </div>
-    </main>
-
-    <footer id="point-strip">
-        <span style="font-size: 10px; color: var(--gold-muted); margin-right: 10px;">HISTORY:</span>
-        <div id="strip-inner" style="display: flex; gap: 8px;"></div>
-    </footer>
-
-    <div id="export-drawer">
-        <h3 style="color: var(--gold-muted); margin-bottom: 15px;">PRODUCTION CSS</h3>
-        <textarea id="css-output" readonly></textarea>
-        <button class="rail-btn" style="width: 100%;" onclick="copyCSS()">Copy CSS</button>
-        <button class="rail-btn" style="width: 100%; margin-top: 10px;" onclick="toggleExport()">Close</button>
+  <!-- Brand -->
+  <div class="hud-brand" title="VIBE JIVER Studio">
+    <div class="hud-duck">
+      <img id="vj-hud-duck-img" src="" alt="VJ duck">
     </div>
+    <div class="hud-brand-text">
+      <div class="hud-brand-title" id="vj-hud-brand">VIBE JIVER</div>
+      <div class="hud-brand-sub">STUDIO PLATFORM · RIFF-SHFTR © 2026</div>
+    </div>
+  </div>
 
-    <input type="file" id="file-input" accept="image/*">
+  <!-- POS readout — updated via window.VJ.updateHUD(x, y) -->
+  <div class="hud-readout">
+    <div class="hud-readout-label">POS</div>
+    <div class="hud-readout-value" id="vj-hud-pos">—, —</div>
+  </div>
 
-    <script>
-        const img = document.getElementById('loaded-img');
-        const stack = document.getElementById('canvas-stack');
-        const mLayer = document.getElementById('markers-layer');
-        const cCanvas = document.getElementById('crosshair-canvas');
-        const gCanvas = document.getElementById('grid-canvas');
-        const cCtx = cCanvas.getContext('2d');
-        const gCtx = gCanvas.getContext('2d');
-        
-        let points = [];
-        let showGrid = false;
-        let imgW = 0, imgH = 0;
+  <!-- NATURAL RES readout — updated via window.VJ.updateRes(w, h) -->
+  <div class="hud-readout">
+    <div class="hud-readout-label">NATURAL RES</div>
+    <div class="hud-readout-value" id="vj-hud-res">— × —</div>
+  </div>
 
-        document.getElementById('file-input').addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                img.src = ev.target.result;
-                img.onload = () => {
-                    imgW = img.naturalWidth;
-                    imgH = img.naturalHeight;
-                    // Lock internal canvas resolution to raw image pixels
-                    [cCanvas, gCanvas].forEach(c => { c.width = imgW; c.height = imgH; });
-                    stack.style.display = 'block';
-                    document.getElementById('drop-overlay').style.display = 'none';
-                    drawGrid();
-                };
-            };
-            reader.readAsDataURL(file);
-        });
+  <!-- Right cluster: module tag + PWA dot -->
+  <div class="hud-right">
+    <span class="hud-module-tag" id="vj-hud-module-tag"></span>
+    <div class="hud-live-dot" id="vj-hud-dot"></div>
+  </div>
 
-        // Precision Crosshair Math
-        mLayer.addEventListener('mousemove', e => {
-            if (!imgW) return;
-            const rect = mLayer.getBoundingClientRect();
-            // Calculate position relative to the rendered image size
-            const x = (e.clientX - rect.left) * (imgW / rect.width);
-            const y = (e.clientY - rect.top) * (imgH / rect.height);
-            
-            updateHUD(x, y);
-            drawCrosshair(x, y);
-        });
+</header>
 
-        function drawCrosshair(x, y) {
-            cCtx.clearRect(0, 0, imgW, imgH);
-            cCtx.strokeStyle = '#c5a059';
-            cCtx.lineWidth = 2; // Thicker for visibility
-            cCtx.beginPath();
-            cCtx.moveTo(0, y); cCtx.lineTo(imgW, y);
-            cCtx.moveTo(x, 0); cCtx.lineTo(x, imgH);
-            cCtx.stroke();
-            cCtx.beginPath();
-            cCtx.arc(x, y, 15, 0, Math.PI * 2);
-            cCtx.stroke();
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     ② LEFT RAIL — 70px (expands on hover)
+     ═══════════════════════════════════════════════════════════════════════ -->
+<nav id="vj-rail" role="navigation" aria-label="Module navigation">
+
+  <!-- Duck logo — click goes home -->
+  <div class="rail-logo-wrap" onclick="VJ.switchPanel('welcome')" title="Home">
+    <img id="vj-rail-duck-img" src="" alt="VJ">
+  </div>
+
+  <div class="rail-sep"></div>
+
+  <!-- Home -->
+  <button class="rail-btn active" id="rail-btn-welcome"
+    onclick="VJ.switchPanel('welcome')" title="Home">
+    <span class="rail-btn-icon">⌂</span>
+    <span class="rail-btn-label">Home</span>
+  </button>
+
+  <div class="rail-sep"></div>
+
+  <!-- ── LIVE MODULE: Bulls-Eye Ducky ── -->
+  <button class="rail-btn" id="rail-btn-ducky"
+    onclick="VJ.switchPanel('ducky')" title="Bulls-Eye Ducky">
+    <span class="rail-btn-icon">🎯</span>
+    <span class="rail-btn-label">BE Ducky</span>
+    <span class="rail-btn-badge live-badge">LIVE</span>
+  </button>
+
+  <div class="rail-sep"></div>
+
+  <!-- ── FUTURE MODULES ── -->
+  <button class="rail-btn" onclick="VJ.comingSoon('Animation Editor')" title="Animation Editor">
+    <span class="rail-btn-icon">⏱</span>
+    <span class="rail-btn-label">Anim Editor</span>
+    <span class="rail-btn-badge soon-badge">SOON</span>
+  </button>
+
+  <button class="rail-btn" onclick="VJ.comingSoon('State Machine')" title="State Machine">
+    <span class="rail-btn-icon">⬡</span>
+    <span class="rail-btn-label">State Machine</span>
+    <span class="rail-btn-badge soon-badge">SOON</span>
+  </button>
+
+  <button class="rail-btn" onclick="VJ.comingSoon('Dashboard Builder')" title="Dashboard Builder">
+    <span class="rail-btn-icon">◫</span>
+    <span class="rail-btn-label">Dashboard</span>
+    <span class="rail-btn-badge soon-badge">SOON</span>
+  </button>
+
+  <button class="rail-btn" onclick="VJ.comingSoon('Audio Reactor')" title="Audio Reactor">
+    <span class="rail-btn-icon">♪</span>
+    <span class="rail-btn-label">Audio</span>
+    <span class="rail-btn-badge soon-badge">SOON</span>
+  </button>
+
+  <button class="rail-btn" onclick="VJ.comingSoon('Component Builder')" title="Component Builder">
+    <span class="rail-btn-icon">◈</span>
+    <span class="rail-btn-label">Components</span>
+    <span class="rail-btn-badge soon-badge">SOON</span>
+  </button>
+
+  <div class="rail-footer-credit">RIFF-SHFTR © 2026</div>
+</nav>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     WORKSPACE
+     ═══════════════════════════════════════════════════════════════════════ -->
+<main id="vj-workspace">
+
+  <!-- ── WELCOME PANEL ── -->
+  <section class="vj-panel vj-panel--visible vj-panel--in" id="panel-welcome">
+    <div class="welcome-body">
+
+      <div class="welcome-eyebrow">Modular Studio Platform</div>
+
+      <!-- Title: each letter is a span for individual Giggle animation -->
+      <div class="welcome-title" id="vj-welcome-title" aria-label="VIBE JIVER">
+        <!-- Populated by JS for staggered Giggle-in -->
+      </div>
+
+      <div class="welcome-sub">Select a module to begin</div>
+
+      <div class="module-grid">
+
+        <div class="module-card module-card--live" onclick="VJ.switchPanel('ducky')">
+          <div class="card-icon">🎯</div>
+          <div class="card-title">Bulls-Eye Ducky</div>
+          <div class="card-desc">Precision coordinate plotter. Drop an image, click to mark points, export CSS / JSON / AI prompts. Full undo stack, adaptive crosshair, grid overlay.</div>
+          <div class="card-badge card-badge--live">● Live</div>
+        </div>
+
+        <div class="module-card" onclick="VJ.comingSoon('Animation Editor')">
+          <div class="card-icon">⏱</div>
+          <div class="card-title">Anim Editor</div>
+          <div class="card-desc">Keyframe timeline, easing curves, blending layers and nested sequences with real-time runtime playback engine.</div>
+          <div class="card-badge card-badge--soon">Coming Soon</div>
+        </div>
+
+        <div class="module-card" onclick="VJ.comingSoon('State Machine')">
+          <div class="card-icon">⬡</div>
+          <div class="card-title">State Machine</div>
+          <div class="card-desc">Visual state graph with boolean, number and trigger inputs. Conditional transitions, blend states and runtime scripting hooks.</div>
+          <div class="card-badge card-badge--soon">Coming Soon</div>
+        </div>
+
+        <div class="module-card" onclick="VJ.comingSoon('Dashboard Builder')">
+          <div class="card-icon">◫</div>
+          <div class="card-title">Dashboard</div>
+          <div class="card-desc">Drag-and-drop animated component builder. Responsive anchors, constraint layout engine, live preview and export.</div>
+          <div class="card-badge card-badge--soon">Coming Soon</div>
+        </div>
+
+        <div class="module-card" onclick="VJ.comingSoon('Audio Reactor')">
+          <div class="card-icon">♪</div>
+          <div class="card-title">Audio Reactor</div>
+          <div class="card-desc">Real-time audio analysis driving reactive UI animations, visualisers and beat-synced component state transitions.</div>
+          <div class="card-badge card-badge--soon">Coming Soon</div>
+        </div>
+
+        <div class="module-card" onclick="VJ.comingSoon('Component Builder')">
+          <div class="card-icon">◈</div>
+          <div class="card-title">Components</div>
+          <div class="card-desc">Build reusable animated buttons, sliders, particles and headers. Export as standalone modules or publish to the VJ library.</div>
+          <div class="card-badge card-badge--soon">Coming Soon</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── MODULE INJECTION ROOT ─────────────────────────────────────────────
+       ducky.js (and all future modules) mount their full DOM here.
+       The shell never needs to know the module's internal structure.     -->
+  <div id="bd-module-root" role="region" aria-label="Active module"></div>
+
+</main>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     BOTTOM STATUS BAR
+     ═══════════════════════════════════════════════════════════════════════ -->
+<footer id="vj-statusbar">
+  <div class="status-cell">
+    <div class="hud-live-dot" id="vj-status-dot"></div>
+    <span id="vj-status-text">Initializing…</span>
+  </div>
+  <div class="status-cell">VIBE JIVER · Studio Platform · Build 23.0</div>
+  <div class="status-cell" id="vj-status-tail">← Select a module</div>
+</footer>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SHELL SCRIPT
+     window.VJ is declared here so modules can call it immediately.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────────────
+   window.VJ  —  Global bridge object
+   Modules MUST use this API instead of touching shell DOM directly.
+
+   Public methods
+   ──────────────
+   VJ.updateHUD(x, y)       Update POS readout (called by ducky on mousemove)
+   VJ.updateRes(w, h)       Update NATURAL RES readout (called on image load)
+   VJ.switchPanel(id)       Navigate to a panel / activate a module
+   VJ.comingSoon(name)      Show "Coming Soon" toast for unbuilt modules
+   VJ.toast(msg, ms)        Fire a generic toast message
+   VJ.snapImage(imgEl)      Trigger blur→snap on a .vj-artwork__img element
+   ───────────────────────────────────────────────────────────────────────── */
+window.VJ = (function () {
+
+  /* ── Private state ── */
+  var _panel       = 'welcome';
+  var _duckyReady  = false;
+  var _toastTimer  = null;
+  var _flashTimer  = null;
+
+  /* ── Cached DOM refs (set on first use) ── */
+  var $pos, $res, $modTag, $statusTail, $statusText, $statusDot;
+
+  var LABELS = {
+    welcome : 'Home',
+    ducky   : 'Bulls-Eye Ducky'
+  };
+
+  /* ── Private: flash a HUD value element ── */
+  function _flash(el) {
+    if (!el) return;
+    el.classList.remove('vj-flash');
+    // Force reflow so the animation restarts cleanly
+    void el.offsetWidth;
+    el.classList.add('vj-flash');
+    clearTimeout(_flashTimer);
+    _flashTimer = setTimeout(function () { el.classList.remove('vj-flash'); }, 300);
+  }
+
+  /* ── Private: giggle the HUD brand title ── */
+  function _giggleBrand() {
+    var el = document.getElementById('vj-hud-brand');
+    if (!el) return;
+    el.classList.remove('vj-giggle');
+    void el.offsetWidth;
+    el.classList.add('vj-giggle');
+    setTimeout(function () { el.classList.remove('vj-giggle'); }, 560);
+  }
+
+  /* ── Private: transition a panel out ── */
+  function _exitPanel(panelEl, cb) {
+    panelEl.classList.add('vj-panel--out');
+    panelEl.addEventListener('animationend', function handler() {
+      panelEl.removeEventListener('animationend', handler);
+      panelEl.classList.remove('vj-panel--visible', 'vj-panel--in', 'vj-panel--out');
+      if (cb) cb();
+    }, { once: true });
+  }
+
+  /* ── Private: show a panel with enter animation ── */
+  function _enterPanel(panelEl) {
+    panelEl.classList.add('vj-panel--visible', 'vj-panel--in');
+    panelEl.addEventListener('animationend', function () {
+      panelEl.classList.remove('vj-panel--in');
+    }, { once: true });
+  }
+
+  /* ── Private: dynamically load a JS module ── */
+  function _loadScript(src, onLoad, onError) {
+    var s = document.createElement('script');
+    s.src  = src;
+    s.async = false;           // preserve execution order with future deps
+    s.onload  = onLoad  || null;
+    s.onerror = onError || function () {
+      VJ.toast('⚠ Module failed to load: ' + src, 3500);
+      console.error('[VJ] Failed to load:', src);
+    };
+    document.body.appendChild(s);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     PUBLIC API
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * updateHUD(x, y)
+   * Updates the POS display in the top HUD.
+   * Called by ducky.js on every image mousemove.
+   */
+  function updateHUD(x, y) {
+    if (!$pos) $pos = document.getElementById('vj-hud-pos');
+    var v = Math.round(x) + ', ' + Math.round(y);
+    if ($pos && $pos.textContent !== v) {
+      $pos.textContent = v;
+      _flash($pos);
+    }
+  }
+
+  /**
+   * updateRes(w, h)
+   * Updates the NATURAL RES display in the top HUD.
+   * Called by ducky.js when an image finishes loading.
+   */
+  function updateRes(w, h) {
+    if (!$res) $res = document.getElementById('vj-hud-res');
+    var v = w + ' \u00D7 ' + h;   /* × */
+    if ($res && $res.textContent !== v) {
+      $res.textContent = v;
+      _flash($res);
+    }
+  }
+
+  /**
+   * switchPanel(id)
+   * Transitions to the named panel. Loads the ducky module on first visit.
+   */
+  function switchPanel(id) {
+    if (id === _panel && id !== 'ducky') return;
+
+    /* Giggle brand on every transition */
+    _giggleBrand();
+
+    /* Update rail */
+    document.querySelectorAll('.rail-btn').forEach(function (b) {
+      b.classList.remove('active');
+    });
+    var rb = document.getElementById('rail-btn-' + id);
+    if (rb) rb.classList.add('active');
+
+    /* Module tag in HUD */
+    if (!$modTag)     $modTag     = document.getElementById('vj-hud-module-tag');
+    if (!$statusTail) $statusTail = document.getElementById('vj-status-tail');
+
+    if (id !== 'welcome') {
+      if ($modTag)     { $modTag.textContent = LABELS[id] || id; $modTag.classList.add('on'); }
+      if ($statusTail) $statusTail.textContent = '\u25B8 ' + (LABELS[id] || id);
+    } else {
+      if ($modTag)     $modTag.classList.remove('on');
+      if ($statusTail) $statusTail.textContent = '\u2190 Select a module';
+    }
+
+    /* Exit current panel */
+    var currentEl = document.querySelector('.vj-panel.vj-panel--visible');
+    var moduleRoot = document.getElementById('bd-module-root');
+
+    var _doEnter = function () {
+      _panel = id;
+
+      if (id === 'ducky') {
+        /* Show module root */
+        moduleRoot.classList.add('vj-mod--active');
+
+        if (!_duckyReady) {
+          _duckyReady = true;
+
+          /* ─ MODULE INJECTION ─────────────────────────────────────────
+             Dynamically load ducky.js into the page.
+             This is the single entry-point for the BE Ducky module.   */
+          _loadScript('./modules/beDucky/ducky.js', function () {
+            console.log('[VJ] ducky.js loaded and executing');
+            /* Give the module a tick to initialise its DOM, then size canvases */
+            setTimeout(function () {
+              if (typeof resizeGridCanvas   === 'function') resizeGridCanvas();
+              if (typeof resizeCursorCanvas === 'function') resizeCursorCanvas();
+              if (typeof renderPoints       === 'function') renderPoints();
+              if (typeof updateCtxMenuState === 'function') updateCtxMenuState();
+            }, 60);
+          });
+
+        } else {
+          /* Already loaded — just resize canvases for the newly visible panel */
+          setTimeout(function () {
+            if (typeof resizeGridCanvas   === 'function') resizeGridCanvas();
+            if (typeof resizeCursorCanvas === 'function') resizeCursorCanvas();
+          }, 30);
         }
 
-        function updateHUD(x, y) {
-            const px = Math.round(x);
-            const py = Math.round(y);
-            const pctX = ((x / imgW) * 100).toFixed(2);
-            const pctY = ((y / imgH) * 100).toFixed(2);
-            document.getElementById('hud-px').innerText = `${px}, ${py}`;
-            document.getElementById('hud-pct').innerText = `${pctX}%, ${pctY}%`;
-        }
+      } else {
+        /* Hide module root if we're leaving ducky */
+        moduleRoot.classList.remove('vj-mod--active');
 
-        // Plotting Logic
-        mLayer.addEventListener('mousedown', e => {
-            if (!imgW) return;
-            const rect = mLayer.getBoundingClientRect();
-            const x = (e.clientX - rect.left) * (imgW / rect.width);
-            const y = (e.clientY - rect.top) * (imgH / rect.height);
-            
-            const p = {
-                id: points.length + 1,
-                pctX: ((x / imgW) * 100).toFixed(2),
-                pctY: ((y / imgH) * 100).toFixed(2),
-                pxX: Math.round(x),
-                pxY: Math.round(y)
-            };
-            
-            points.push(p);
-            renderMarkers();
-        });
+        var panelEl = document.getElementById('panel-' + id);
+        if (panelEl) _enterPanel(panelEl);
+      }
+    };
 
-        function renderMarkers() {
-            mLayer.innerHTML = '';
-            document.getElementById('strip-inner').innerHTML = '';
-            points.forEach(p => {
-                const m = document.createElement('div');
-                m.className = 'marker';
-                m.style.left = `${p.pctX}%`;
-                m.style.top = `${p.pctY}%`;
-                m.innerHTML = `<span class="marker-label">#${p.id}</span>`;
-                mLayer.appendChild(m);
+    if (currentEl) {
+      /* Hide module root immediately if it was visible */
+      if (id !== 'ducky') moduleRoot.classList.remove('vj-mod--active');
+      _exitPanel(currentEl, _doEnter);
+    } else {
+      _doEnter();
+    }
+  }
 
-                const chip = document.createElement('div');
-                chip.className = 'point-chip';
-                chip.innerText = `#${p.id}: ${p.pctX}% / ${p.pctY}%`;
-                document.getElementById('strip-inner').appendChild(chip);
-            });
-            updateExport();
-        }
+  /**
+   * comingSoon(name)
+   * Shows a toast for modules that aren't built yet.
+   */
+  function comingSoon(name) {
+    toast('\u2699 ' + name + ' \u2014 Coming Soon');
+  }
 
-        function toggleGrid() {
-            showGrid = !showGrid;
-            gCanvas.style.opacity = showGrid ? '1' : '0';
-        }
+  /**
+   * toast(msg, duration)
+   * Fires a temporary notification from the bottom of the screen.
+   */
+  function toast(msg, duration) {
+    duration = duration || 2400;
+    var el = document.getElementById('vj-toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('vj-toast--show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function () {
+      el.classList.remove('vj-toast--show');
+    }, duration);
+  }
 
-        function drawGrid() {
-            gCtx.clearRect(0, 0, imgW, imgH);
-            gCtx.strokeStyle = 'rgba(197, 160, 89, 0.1)';
-            gCtx.lineWidth = 1;
-            const step = 100;
-            for(let x=0; x<=imgW; x+=step){ gCtx.moveTo(x,0); gCtx.lineTo(x,imgH); }
-            for(let y=0; y<=imgH; y+=step){ gCtx.moveTo(0,y); gCtx.lineTo(imgW,y); }
-            gCtx.stroke();
-        }
+  /**
+   * snapImage(imgEl)
+   * Activates the blur(10px)→blur(0) snap on a .vj-artwork__img element.
+   * ducky.js calls this after setting img.src.
+   * Also pushes natural dimensions to the NATURAL RES HUD readout.
+   */
+  function snapImage(imgEl) {
+    if (!imgEl) return;
+    var _apply = function () {
+      imgEl.classList.add('vj-artwork__img--loaded');
+      if (imgEl.naturalWidth && imgEl.naturalHeight) {
+        updateRes(imgEl.naturalWidth, imgEl.naturalHeight);
+      }
+    };
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+      _apply();
+    } else {
+      imgEl.addEventListener('load', _apply, { once: true });
+    }
+  }
 
-        function undoLast() { points.pop(); renderMarkers(); }
-        function toggleExport() { document.getElementById('export-drawer').classList.toggle('open'); }
+  /* Expose public API */
+  return {
+    updateHUD  : updateHUD,
+    updateRes  : updateRes,
+    switchPanel: switchPanel,
+    comingSoon : comingSoon,
+    toast      : toast,
+    snapImage  : snapImage
+  };
 
-        function updateExport() {
-            const css = points.map(p => `.point-${p.id} { left: ${p.pctX}%; top: ${p.pctY}%; }`).join('\n');
-            document.getElementById('css-output').value = css;
-        }
+}()); /* end window.VJ */
 
-        function copyCSS() {
-            navigator.clipboard.writeText(document.getElementById('css-output').value);
-            alert("CSS Stored in Clipboard.");
-        }
 
-        function copyAIPrompt() {
-            const data = points.map(p => `- ID ${p.id}: X ${p.pctX}%, Y ${p.pctY}%`).join('\n');
-            const prompt = `UI Architecture Task: Use these coordinate percentages to place elements on an image:\n${data}`;
-            navigator.clipboard.writeText(prompt);
-            alert("AI Prompt Stored.");
-        }
-    </script>
+/* ─────────────────────────────────────────────────────────────────────────
+   INIT — runs after DOM is ready
+   ───────────────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function () {
+
+  /* ── Stagger the welcome title letters with Giggle-in ── */
+  var TITLE_TEXT = 'VIBE JIVER';
+  var titleEl = document.getElementById('vj-welcome-title');
+  if (titleEl) {
+    TITLE_TEXT.split('').forEach(function (ch, i) {
+      var span = document.createElement('span');
+      span.className = 'welcome-title__letter';
+      span.textContent = ch === ' ' ? '\u00A0' : ch;
+      /* Stagger each letter: start at 0.25s, offset 0.05s per letter */
+      span.style.animationDelay = (0.25 + i * 0.05) + 's';
+      titleEl.appendChild(span);
+    });
+  }
+
+  /* ── Duck images: poll for DUCK_IMG (set by ducky.js after load) ── */
+  var _duckPoll = setInterval(function () {
+    if (typeof DUCK_IMG !== 'undefined' && DUCK_IMG) {
+      clearInterval(_duckPoll);
+      ['vj-hud-duck-img', 'vj-rail-duck-img'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.src = DUCK_IMG;
+      });
+    }
+  }, 120);
+
+  /* ── Hash routing: /index.html#ducky opens BE Ducky directly ── */
+  if (window.location.hash === '#ducky') {
+    setTimeout(function () { VJ.switchPanel('ducky'); }, 350);
+  }
+
+  /* ── PWA service worker ── */
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./pwa/service-worker.js')
+      .then(function (reg) {
+        var dot  = document.getElementById('vj-hud-dot');
+        var sdot = document.getElementById('vj-status-dot');
+        var stxt = document.getElementById('vj-status-text');
+        if (dot)  dot.classList.add('live');
+        if (sdot) sdot.classList.add('live');
+        if (stxt) stxt.textContent = 'PWA \u00B7 Offline Ready';
+        console.log('[VJ] Service worker registered:', reg.scope);
+      })
+      .catch(function () {
+        var stxt = document.getElementById('vj-status-text');
+        if (stxt) stxt.textContent = 'PWA (no SW)';
+      });
+  } else {
+    var stxt = document.getElementById('vj-status-text');
+    if (stxt) stxt.textContent = 'Running';
+  }
+
+});
+
+/* ─────────────────────────────────────────────────────────────────────────
+   BOTTOM OF SCRIPT — dynamic module pre-load notice
+   ducky.js is NOT loaded here at startup.
+   It loads on first visit to the Ducky panel via VJ.switchPanel('ducky').
+   This keeps the initial bundle minimal and respects the modular contract.
+
+   To eager-load it (e.g. for Electron builds), uncomment this line:
+   // VJ.switchPanel('ducky');
+   ───────────────────────────────────────────────────────────────────────── */
+</script>
+
 </body>
-</html>
+</ht
