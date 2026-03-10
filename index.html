@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIBE JIVER | Bulls-Eye Edition</title>
+    <title>VIBE JIVER | Target Alpha</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="ducky.png">
     <meta name="theme-color" content="#c5a059">
@@ -59,11 +59,13 @@
         #image-wrapper { position: absolute; transform-origin: 0 0; display: none; z-index: 2; }
         #uploaded-image { display: block; user-select: none; pointer-events: auto; }
 
-        /* The Hero Mascot Backdrop */
+        /* Ghost Mascot Backdrop */
         #drop-zone-overlay {
             position: absolute; inset: 0;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 1; transition: opacity 0.6s ease-in-out;
+            z-index: 1; 
+            transition: opacity 0.6s ease-in-out;
+            pointer-events: none;
         }
 
         .hero-ducky {
@@ -131,7 +133,7 @@
 
     <header>
         <div class="logo">VIBE JIVER</div>
-        <div id="status" style="font-size: 14px; color: var(--gold-muted); letter-spacing: 2px;">READY FOR SCAN</div>
+        <div id="status" style="font-size: 14px; color: var(--gold-muted); letter-spacing: 2px;">SYSTEM READY</div>
     </header>
 
     <div class="main-layout">
@@ -148,7 +150,7 @@
         <section class="canvas-container" id="container">
             <div id="drop-zone-overlay">
                 <img src="ducky.png" alt="Bulls-Eye Ducky" class="hero-ducky" onerror="this.style.display='none'">
-                <p id="placeholder-text" style="color: var(--gold-muted); letter-spacing: 4px; font-size: 14px; text-shadow: 0 0 10px black;">TARGET ACQUISITION MODE</p>
+                <p id="placeholder-text" style="color: var(--gold-muted); letter-spacing: 6px; font-size: 16px; text-shadow: 0 0 10px black; font-weight: bold;">TARGET ACQUIRED</p>
             </div>
 
             <div id="image-wrapper">
