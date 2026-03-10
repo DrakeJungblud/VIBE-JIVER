@@ -101,4 +101,187 @@
 
         .coord-display {
             background: #111; border: 1px solid var(--gold-muted);
-            padding: 15px; margin
+            padding: 15px; margin-top: 10px; font-family: monospace;
+            color: var(--gold-bright);
+            box-shadow: inset 0 0 10px rgba(197, 160, 89, 0.1);
+        }
+
+        .marker {
+            position: absolute; width: 10px; height: 10px;
+            border: 1px solid var(--gold-bright); border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none;
+            box-shadow: 0 0 8px var(--gold-bright);
+        }
+
+        .marker::after { content: ''; position: absolute; background: var(--gold-bright); width: 1px; height: 20px; left: 4.5px; top: -5px; }
+        .marker::before { content: ''; position: absolute; background: var(--gold-bright); width: 20px; height: 1px; left: -5px; top: 4.5px; }
+
+        .coord-log {
+            font-size: 14px; color: #888; margin-top: 10px;
+            max-height: 250px; overflow-y: auto; border-top: 1px solid #222; padding-top: 10px;
+        }
+
+        .log-entry { padding: 4px 0; border-bottom: 1px solid #111; border-left: 2px solid transparent; transition: 0.2s; }
+        .log-entry:hover { border-left-color: var(--gold-muted); padding-left: 5px; color: var(--gold-bright); }
+        
+        #file-input { display: none; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">VIBE JIVER</div>
+        <div id="status" style="font-size: 14px; color: var(--gold-muted); letter-spacing: 2px;">READY FOR SCAN</div>
+    </header>
+
+    <div class="main-layout">
+        <aside>
+            <input type="file" id="file-input" accept="image/*">
+            <button class="vibe-btn" onclick="document.getElementById('file-input').click()">Load Local Image</button>
+            <button class="vibe-btn" onclick="resetCanvas()">Clear All</button>
+            
+            <p style="font-size: 11px; color: #333; margin-top: auto; text-align: center; letter-spacing: 3px;">
+                BULLS-EYE DUCKY // PROJECT ALPHA
+            </p>
+        </aside>
+
+        <section class="canvas-container" id="container">
+            <div id="drop-zone-overlay">
+                <img src="ducky.png" alt="Bulls-Eye Ducky" class="hero-ducky" onerror="this.style.display='none'">
+                <p id="placeholder-text" style="color: var(--gold-muted); letter-spacing: 4px; font-size: 14px; text-shadow: 0 0 10px black;">TARGET ACQUISITION MODE</p>
+            </div>
+
+            <div id="image-wrapper">
+                <img id="uploaded-image" draggable="false">
+                <div id="marker-layer"></div>
+            </div>
+        </section>
+
+        <aside class="inspector">
+            <h3 style="color: var(--gold-muted); font-size: 18px; margin-top: 0; letter-spacing: 2px;">INSPECTOR</h3>
+            <div class="coord-display">
+                X: <span id="val-x">0</span><br>
+                Y: <span id="val-y">0</span>
+            </div>
+            <div style="margin-top: 15px;">
+                <button class="vibe-btn" onclick="copyCoords()">Copy to Clipboard</button>
+                <button class="vibe-btn" onclick="exportCSV()">Export CSV</button>
+            </div>
+            <div class="coord-log" id="coord-log">No clicks recorded.</div>
+        </aside>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const wrapper = document.getElementById('image-wrapper');
+        const img = document.getElementById('uploaded-image');
+        const markerLayer = document.getElementById('marker-layer');
+        const valX = document.getElementById('val-x');
+        const valY = document.getElementById('val-y');
+        const log = document.getElementById('coord-log');
+        const status = document.getElementById('status');
+        const fileInput = document.getElementById('file-input');
+        const overlay = document.getElementById('drop-zone-overlay');
+
+        let scale = 1, posX = 0, posY = 0, clickHistory = [];
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        container.addEventListener('dragover', (e) => e.preventDefault());
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        function handleFile(file) {
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    img.src = event.target.result;
+                    wrapper.style.display = 'block';
+                    overlay.style.opacity = '0';
+                    setTimeout(() => overlay.style.display = 'none', 600);
+                    img.onload = () => { resetZoom(); };
+                    status.innerText = "LOCKED ON TARGET";
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function resetZoom() {
+            scale = 1; 
+            posX = (container.clientWidth - img.width) / 2; 
+            posY = (container.clientHeight - img.height) / 2;
+            updateTransform();
+        }
+
+        function updateTransform() {
+            wrapper.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+        }
+
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const xs = (e.clientX - posX - container.offsetLeft) / scale;
+            const ys = (e.clientY - posY - container.offsetTop) / scale;
+            const delta = -e.deltaY;
+            (delta > 0) ? (scale *= 1.1) : (scale /= 1.1);
+            posX = e.clientX - xs * scale - container.offsetLeft;
+            posY = e.clientY - ys * scale - container.offsetTop;
+            updateTransform();
+        }, { passive: false });
+
+        let isPanning = false;
+        container.addEventListener('mousedown', (e) => {
+            if (e.altKey) { isPanning = true; return; }
+            if (wrapper.style.display === 'block') {
+                const x = Math.round((e.clientX - posX - container.offsetLeft) / scale);
+                const y = Math.round((e.clientY - posY - container.offsetTop) / scale);
+                
+                if (x >= 0 && x <= img.width && y >= 0 && y <= img.height) {
+                    valX.innerText = x; valY.innerText = y;
+                    clickHistory.unshift({ x, y, time: new Date().toLocaleTimeString() });
+                    const marker = document.createElement('div');
+                    marker.className = 'marker';
+                    marker.style.left = `${x}px`;
+                    marker.style.top = `${y}px`;
+                    markerLayer.appendChild(marker);
+                    renderLog();
+                }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isPanning) {
+                posX += e.movementX; posY += e.movementY;
+                updateTransform();
+            }
+        });
+
+        window.addEventListener('mouseup', () => isPanning = false);
+
+        function renderLog() {
+            log.innerHTML = clickHistory.map(item => `<div class="log-entry">[${item.time}] X: ${item.x}, Y: ${item.y}</div>`).join('');
+        }
+
+        function copyCoords() {
+            navigator.clipboard.writeText(`X: ${valX.innerText}, Y: ${valY.innerText}`);
+            status.innerText = "COPIED TO CLIPBOARD"; setTimeout(() => status.innerText = "LOCKED ON TARGET", 2000);
+        }
+
+        function exportCSV() {
+            if (!clickHistory.length) return;
+            let csv = "data:text/csv;charset=utf-8,Time,X,Y\n" + clickHistory.map(e => `${e.time},${e.x},${e.y}`).join("\n");
+            const link = document.createElement("a");
+            link.href = encodeURI(csv);
+            link.download = "vibe_jiver_plots.csv";
+            link.click();
+        }
+
+        function resetCanvas() { location.reload(); }
+    </script>
+</body>
+</html>
