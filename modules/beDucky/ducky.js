@@ -1,293 +1,65 @@
 /* ============================================================
-   BE DUCKY  v55  —  Vibe Jiver Module
-   RESTORED: Original Lead Engineering Build
-   NEW in v55:
-     · Full typography audit — all body text #e8e8e8 at 13px+
-       Gold (#c5a059) strictly for headers, active states, pins
-     · Right panel label inputs: 14px, full-width, clearly legible
-     · Panel numbers & slot numbers: 13px, #aaa (was 10px #333)
-     · Right-click context menu completely rebuilt as Windows-10-style
-       native-look popup: frosted dark card, proper hover highlight,
-       checkmark for active states, dividers between groups,
-       greyed-out disabled items, smooth shadow — NO section label clutter
-     · Context menu is CONTEXT-AWARE: PIN section only appears when
-       right-clicking a pin; canvas right-click shows condensed menu
-     · CSS+Labels export now clearly labeled and accessible
-     · All v54 features preserved (tabs, expand/collapse, shortcuts,
-       live label, import, AI Meet Ducky, modes tab, export tab)
+   BE DUCKY  v50  —  Vibe Jiver Module
+   Mount target : #bd-module-root  (injected by VJ shell)
+   Bridge       : window.VJ.updateHUD(x,y) / updateRes(w,h) / snapImage(img)
+   Namespace    : window.BeDucky
    ============================================================ */
 (function (root) {
   'use strict';
 
-  var MAX_LABELS = 20;
-
-  /* ════════════════════════════════════════════════════════════════
-     AI MEET DUCKY
-     ════════════════════════════════════════════════════════════════ */
-  var DUCKY_SYSTEM_PROMPT = [
-    '# BULLS-EYE DUCKY — Coordinate Plotter · System Context',
-    '',
-    'I use a tool called **Bulls-Eye Ducky** (part of Vibe Jiver Studio) to plot',
-    'precise pixel coordinates on images. Here is how it works so you can collaborate',
-    'with me directly:',
-    '',
-    '## How It Works',
-    '- I load an image (PNG/JPG/WebP/SVG/GIF) into the plotter.',
-    '- I click on the image to drop numbered **pins** at exact pixel positions.',
-    '- Every pin records: { index, x, y, label } where x/y are natural pixel coords',
-    '  from the top-left origin (0,0).',
-    '- The image natural size (width × height in px) is always included in exports.',
-    '',
-    '## Label System',
-    '- Each pin slot (1–20) can have a pre-assigned label.',
-    '- **Live Label Mode ON**: pins auto-receive the label from the matching numbered slot.',
-    '- **Live Label Mode OFF**: pins are unlabelled until manually assigned.',
-    '- I can import a label list as a JSON array OR plain numbered text.',
-    '',
-    '## How You Can Help Me',
-    '',
-    '### Send me labels (paste them in, they auto-apply as I pin):',
-    '["left eye", "right eye", "nose tip", "mouth center", "chin"]',
-    '',
-    'Or plain numbered text:',
-    '1. Left eye',
-    '2. Right eye',
-    '3. Nose tip',
-    '',
-    '### I send you coordinates:',
-    '',
-    'Image: 1200 × 800 px',
-    'Pins:',
-    '  1. x=340, y=210  [left eye]',
-    '  2. x=580, y=210  [right eye]',
-    '  3. x=460, y=310  [nose tip]',
-    '',
-    '## Export Formats',
-    '- **CSS**: .point-N { left: Xpx; top: Ypx; } /* label */',
-    '- **JSON**: structured object with naturalSize + points array',
-    '- **AI Prompt**: human-readable block ready to paste into any chat',
-    '',
-    '## Key Rules',
-    '- Coordinates are NATURAL pixel values (not scaled/display px).',
-    '- Pin numbers are 1-indexed and match the label slot numbers.',
-    '- Labels are optional but make exports dramatically more useful.',
-    '',
-    '---',
-    'You now understand Bulls-Eye Ducky. Ready to collaborate.'
-  ].join('\n');
-
-  /* ════════════════════════════════════════════════════════════════
-     1. HTML — label rows (20 slots)
-     ════════════════════════════════════════════════════════════════ */
-  var _labelRows = [];
-  for (var _ri = 1; _ri <= MAX_LABELS; _ri++) {
-    _labelRows.push(
-      '<div class="bd-lp-row" id="bd-lp-row-' + _ri + '" data-slot="' + _ri + '">' +
-      '<span class="bd-lp-num">' + _ri + '</span>' +
-      '<input type="text" class="bd-lp-input" id="bd-lp-input-' + _ri + '"' +
-      ' placeholder="Label ' + _ri + '" maxlength="48" spellcheck="false">' +
-      '<span class="bd-lp-dot" id="bd-lp-dot-' + _ri + '"></span>' +
-      '</div>'
-    );
-  }
-
+  /* ── 1. STRINGS FIRST (used by step 3 below) ───────────────────── */
   var _MODULE_HTML = [
     '<div id="bd-wrap">',
+
     '  <div class="bd-toolbar">',
     '    <div class="bd-toolbar-left">',
     '      <span class="bd-module-badge">&#127919; BULLS-EYE DUCKY</span>',
-    '      <button class="bd-btn" id="bd-reset-img"  title="New image">&#8617; New Image</button>',
-    '      <button class="bd-btn" id="bd-undo-btn"   disabled title="Undo (Ctrl+Z)">&#8630; Undo</button>',
-    '      <button class="bd-btn" id="bd-redo-btn"   disabled title="Redo (Ctrl+Y)">&#8631; Redo</button>',
-    '      <button class="bd-btn" id="bd-clear-btn"  disabled title="Clear all pins (X)">&#10005; Clear</button>',
+    '      <button class="bd-btn" id="bd-reset-img" title="New image">&#8617; New Image</button>',
+    '      <button class="bd-btn" id="bd-undo-btn" disabled>&#8630; Undo</button>',
+    '      <button class="bd-btn" id="bd-redo-btn" disabled>&#8631; Redo</button>',
+    '      <button class="bd-btn" id="bd-clear-btn" disabled>&#10005; Clear</button>',
     '    </div>',
     '    <div class="bd-toolbar-center">',
     '      <span class="bd-coord-pill" id="bd-coord-display">&#8212;, &#8212;</span>',
-    '      <span class="bd-count-pill" id="bd-count-display">0 pins</span>',
+    '      <span class="bd-count-pill" id="bd-count-display">0 pts</span>',
     '    </div>',
     '    <div class="bd-toolbar-right">',
-    '      <button class="bd-btn bd-btn-active" id="bd-cross-btn"  title="Toggle crosshair (C)">&#10011; Cross</button>',
-    '      <button class="bd-btn bd-btn-active" id="bd-live-btn"   title="Live Label Mode (V)">&#9673; Live</button>',
-    '      <button class="bd-btn bd-btn-active" id="bd-labels-btn" title="Show/hide pin labels (L)">&#9673; Labels</button>',
-    '      <button class="bd-btn"               id="bd-grid-btn"   title="Cycle grid (G)">Grid: Off</button>',
-    '      <button class="bd-btn"               id="bd-snap-btn"   title="Snap to grid (S)">&#8862; Snap</button>',
+    '      <button class="bd-btn bd-btn-active" id="bd-cross-btn">&#10011; Cross</button>',
+    '      <button class="bd-btn" id="bd-grid-btn">Grid: Off</button>',
+    '      <button class="bd-btn" id="bd-snap-btn">&#8862; Snap</button>',
     '    </div>',
     '  </div>',
+
     '  <div class="bd-url-bar">',
-    '    <input type="text" id="bd-url-input" class="bd-url-input" placeholder="Paste image URL then Enter or Load" spellcheck="false" autocomplete="off">',
+    '    <input type="text" id="bd-url-input" class="bd-url-input"',
+    '      placeholder="Paste image URL and press Enter or click Load"',
+    '      spellcheck="false" autocomplete="off">',
     '    <button class="bd-btn bd-btn-gold" id="bd-load-url-btn">Load</button>',
     '    <input type="file" id="bd-file-input" accept="image/*" style="display:none">',
-    '    <div class="bd-url-spacer"></div>',
-    '    <button class="bd-btn bd-btn-ai" id="bd-ai-meet-btn" title="Copy AI onboarding prompt">&#129302; AI Meet Ducky</button>',
     '  </div>',
-    '  <div class="bd-body">',
-    '    <div class="bd-canvas-area">',
-    '      <div class="bd-drop-zone" id="bd-drop-zone">',
-    '        <div class="bd-drop-icon">&#127919;</div>',
-    '        <div class="bd-drop-title">Drop Image Here</div>',
-    '        <div class="bd-drop-sub">or click to browse &middot; PNG JPG GIF WebP SVG</div>',
-    '        <div class="bd-drop-hint">Scroll wheel = crosshair size &middot; Right-click anywhere = menu</div>',
-    '      </div>',
-    '      <div class="bd-image-area" id="bd-image-area" style="display:none">',
-    '        <div class="bd-image-wrap vj-artwork">',
-    '          <img id="bd-main-img" class="bd-main-img vj-artwork__img" alt="target" draggable="false">',
-    '          <canvas id="bd-grid-canvas"   class="bd-canvas-overlay bd-grid-canvas"></canvas>',
-    '          <canvas id="bd-cursor-canvas" class="bd-canvas-overlay bd-cursor-canvas"></canvas>',
-    '          <div    id="bd-points-layer"  class="bd-points-layer"></div>',
-    '        </div>',
-    '      </div>',
+
+    '  <div class="bd-canvas-area">',
+    '    <div class="bd-drop-zone" id="bd-drop-zone">',
+    '      <div class="bd-drop-icon">&#127919;</div>',
+    '      <div class="bd-drop-title">Drop Image Here</div>',
+    '      <div class="bd-drop-sub">or click to browse &middot; PNG, JPG, GIF, WebP, SVG</div>',
     '    </div>',
-    '    <div class="bd-panel" id="bd-label-panel">',
-    '      <div class="bd-panel-topbar">',
-    '        <span class="bd-panel-brand" id="bd-lp-title-txt">&#9998; DUCKY PANEL</span>',
-    '        <button class="bd-panel-iconbtn" id="bd-lp-expand-btn"   title="Expand panel (E)">&#10070;</button>',
-    '        <button class="bd-panel-iconbtn" id="bd-lp-collapse-btn" title="Collapse panel">&#9664;</button>',
-    '      </div>',
-    '      <div class="bd-tab-bar" id="bd-lp-mode-row">',
-    '        <button class="bd-tab bd-tab-active" id="bd-tab-labels"  data-tab="labels">LABELS</button>',
-    '        <button class="bd-tab"               id="bd-tab-modes"   data-tab="modes">MODES</button>',
-    '        <button class="bd-tab"               id="bd-tab-export"  data-tab="export">EXPORT</button>',
-    '      </div>',
-    '      <div class="bd-tab-pane" id="bd-pane-labels">',
-    '        <div class="bd-pane-controls">',
-    '          <span class="bd-pane-label">LIVE MODE</span>',
-    '          <button class="bd-pill bd-pill-on" id="bd-lp-live-toggle" title="Auto-label pins from slots (V)">ON</button>',
-    '          <button class="bd-panel-iconbtn bd-btn-lp-import" id="bd-lp-import-btn" title="Import label list">&#8659; Import</button>',
-    '          <button class="bd-panel-iconbtn bd-btn-lp-clr"   id="bd-lp-clear-btn"  title="Clear all slots">&#10005;</button>',
-    '        </div>',
-    '        <div class="bd-lp-list" id="bd-lp-list">',
-               _labelRows.join(''),
-    '        </div>',
-    '      </div>'/* ── TAB: MODES ── */
-    '      <div class="bd-tab-pane bd-tab-pane-hidden" id="bd-pane-modes">',
-    '        <div class="bd-mode-list">',
-    '          <div class="bd-mode-row">',
-    '            <div class="bd-mode-info">',
-    '              <span class="bd-mode-name">Live Labels</span>',
-    '              <span class="bd-mode-desc">Auto-apply slot labels to new pins</span>',
-    '            </div>',
-    '            <button class="bd-pill bd-pill-on" id="bd-mode-live">ON</button>',
-    '          </div>',
-    '          <div class="bd-mode-row">',
-    '            <div class="bd-mode-info">',
-    '              <span class="bd-mode-name">Label Overlay</span>',
-    '              <span class="bd-mode-desc">Show label text on image pins</span>',
-    '            </div>',
-    '            <button class="bd-pill bd-pill-on" id="bd-mode-labels">ON</button>',
-    '          </div>',
-    '          <div class="bd-mode-row">',
-    '            <div class="bd-mode-info">',
-    '              <span class="bd-mode-name">Crosshair</span>',
-    '              <span class="bd-mode-desc">Precision cursor overlay on canvas</span>',
-    '            </div>',
-    '            <button class="bd-pill bd-pill-on" id="bd-mode-cross">ON</button>',
-    '          </div>',
-    '          <div class="bd-mode-row">',
-    '            <div class="bd-mode-info">',
-    '              <span class="bd-mode-name">Grid Overlay</span>',
-    '              <span class="bd-mode-desc">Rule of thirds / center / full</span>',
-    '            </div>',
-    '            <button class="bd-pill" id="bd-mode-grid">OFF</button>',
-    '          </div>',
-    '          <div class="bd-mode-row">',
-    '            <div class="bd-mode-info">',
-    '              <span class="bd-mode-name">Snap to Grid</span>',
-    '              <span class="bd-mode-desc">Pins snap to grid intersections</span>',
-    '            </div>',
-    '            <button class="bd-pill" id="bd-mode-snap">OFF</button>',
-    '          </div>',
-    '        </div>',
-    '        <div class="bd-mode-section-title">KEYBOARD SHORTCUTS</div>',
-    '        <div class="bd-shortcut-list">',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">V</span><span class="bd-sc-desc">Toggle Live Labels</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">L</span><span class="bd-sc-desc">Toggle Label Overlay</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">C</span><span class="bd-sc-desc">Toggle Crosshair</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">G</span><span class="bd-sc-desc">Cycle Grid Mode</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">S</span><span class="bd-sc-desc">Toggle Snap to Grid</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">X</span><span class="bd-sc-desc">Clear All Pins</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">E</span><span class="bd-sc-desc">Expand / Collapse Panel</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">A</span><span class="bd-sc-desc">Export AI Prompt</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">J</span><span class="bd-sc-desc">Export JSON</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">K</span><span class="bd-sc-desc">Export CSS</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">Shift+K</span><span class="bd-sc-desc">Export CSS + Labels</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">Ctrl+Z</span><span class="bd-sc-desc">Undo</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">Ctrl+Y</span><span class="bd-sc-desc">Redo</span></div>',
-    '          <div class="bd-sc-row"><span class="bd-sc-key">Del</span><span class="bd-sc-desc">Delete Last Pin</span></div>',
-    '        </div>',
-    '      </div>',
-
-    /* ── TAB: EXPORT ── */
-    '      <div class="bd-tab-pane bd-tab-pane-hidden" id="bd-pane-export">',
-    '        <div class="bd-export-section">',
-    '          <div class="bd-export-section-title">OUTPUT FORMAT</div>',
-    '          <button class="bd-export-btn" id="bd-px-exp-ai" disabled>',
-    '            <span class="bd-export-btn-icon">&#129302;</span>',
-    '            <span class="bd-export-btn-body">',
-    '              <span class="bd-export-btn-name">AI Prompt</span>',
-    '              <span class="bd-export-btn-desc">Human-readable block for any AI chat</span>',
-    '            </span>',
-    '            <span class="bd-export-btn-key">A</span>',
-    '          </button>',
-    '          <button class="bd-export-btn" id="bd-px-exp-json" disabled>',
-    '            <span class="bd-export-btn-icon">{ }</span>',
-    '            <span class="bd-export-btn-body">',
-    '              <span class="bd-export-btn-name">JSON</span>',
-    '              <span class="bd-export-btn-desc">Structured data with labels &amp; coords</span>',
-    '            </span>',
-    '            <span class="bd-export-btn-key">J</span>',
-    '          </button>',
-    '          <button class="bd-export-btn" id="bd-px-exp-css" disabled>',
-    '            <span class="bd-export-btn-icon">#</span>',
-    '            <span class="bd-export-btn-body">',
-    '              <span class="bd-export-btn-name">CSS</span>',
-    '              <span class="bd-export-btn-desc">Positioning rules, coordinates only</span>',
-    '            </span>',
-    '            <span class="bd-export-btn-key">K</span>',
-    '          </button>',
-    '          <button class="bd-export-btn bd-export-btn-labeled" id="bd-px-exp-css-lbl" disabled>',
-    '            <span class="bd-export-btn-icon">&#9998;</span>',
-    '            <span class="bd-export-btn-body">',
-    '              <span class="bd-export-btn-name">CSS + Labels</span>',
-    '              <span class="bd-export-btn-desc">CSS rules with inline label comments</span>',
-    '            </span>',
-    '            <span class="bd-export-btn-key">Shift+K</span>',
-    '          </button>',
-    '        </div>',
-    '        <div class="bd-export-section">',
-    '          <div class="bd-export-section-title">CLIPBOARD</div>',
-    '          <button class="bd-export-btn bd-export-btn-copy" id="bd-px-copy" disabled>',
-    '            <span class="bd-export-btn-icon">&#9000;</span>',
-    '            <span class="bd-export-btn-body">',
-    '              <span class="bd-export-btn-name">Copy Output</span>',
-    '              <span class="bd-export-btn-desc">Copy last generated output to clipboard</span>',
-    '            </span>',
-    '          </button>',
-    '        </div>',
-    '        <div class="bd-export-section">',
-    '          <div class="bd-export-section-title">AI COLLABORATION</div>',
-    '          <button class="bd-export-btn bd-export-btn-ai" id="bd-px-ai-meet">',
-    '            <span class="bd-export-btn-icon">&#129302;</span>',
-    '            <span class="bd-export-btn-body">',
-    '              <span class="bd-export-btn-name">AI Meet Ducky</span>',
-    '              <span class="bd-export-btn-desc">Onboard any AI to collaborate with this tool</span>',
-    '            </span>',
-    '          </button>',
-    '        </div>',
-    '      </div>',
-
-    '      <div class="bd-lp-rail" id="bd-lp-rail" style="display:none">',
-    '        <button class="bd-btn-rail" id="bd-lp-expand-rail" title="Expand panel (E)">&#9654;<br><span>P<br>A<br>N<br>E<br>L</span></button>',
+    '    <div class="bd-image-area" id="bd-image-area" style="display:none">',
+    '      <div class="bd-image-wrap vj-artwork">',
+    '        <img id="bd-main-img" class="bd-main-img vj-artwork__img" alt="target image" draggable="false">',
+    '        <canvas id="bd-grid-canvas"   class="bd-canvas-overlay bd-grid-canvas"></canvas>',
+    '        <canvas id="bd-cursor-canvas" class="bd-canvas-overlay bd-cursor-canvas"></canvas>',
+    '        <div    id="bd-points-layer"  class="bd-points-layer"></div>',
     '      </div>',
     '    </div>',
     '  </div>',
 
-    '  <div class="bd-output-bar">',
-    '    <span class="bd-output-bar-label">OUTPUT:</span>',
-    '    <button class="bd-btn bd-btn-sm bd-btn-export" id="bd-export-css"  disabled>CSS</button>',
-    '    <button class="bd-btn bd-btn-sm bd-btn-export" id="bd-export-json" disabled>JSON</button>',
-    '    <button class="bd-btn bd-btn-sm bd-btn-export" id="bd-export-ai"   disabled>AI Prompt</button>',
-    '    <button class="bd-btn bd-btn-sm bd-btn-gold"   id="bd-copy-all"    disabled>&#9000; Copy</button>',
-    '    <span class="bd-status-pill" id="bd-status">Ready — drop an image to begin</span>',
+    '  <div class="bd-export-bar">',
+    '    <button class="bd-btn bd-btn-export" id="bd-export-css"  disabled>CSS</button>',
+    '    <button class="bd-btn bd-btn-export" id="bd-export-json" disabled>JSON</button>',
+    '    <button class="bd-btn bd-btn-export" id="bd-export-ai"   disabled>AI Prompt</button>',
+    '    <button class="bd-btn bd-btn-gold"   id="bd-copy-all"    disabled>&#9000; Copy</button>',
+    '    <span class="bd-status-pill" id="bd-status">Ready</span>',
     '  </div>',
 
     '  <div class="bd-output-wrap" style="display:none">',
@@ -295,89 +67,17 @@
     '  </div>',
 
     '  <div id="bd-ctx-menu" class="bd-ctx-menu" style="display:none">',
-    '    <div class="bd-ctx-header" id="bd-ctx-header">',
-    '      <span class="bd-ctx-header-icon">&#127919;</span>',
-    '      <span class="bd-ctx-header-text" id="bd-ctx-header-text">Pin 1</span>',
-    '    </div>',
-    '    <div id="bd-ctx-pin-group">',
-    '      <button class="bd-ctx-item" id="bd-ctx-label">',
-    '        <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">&#9998;</span>',
-    '        <span class="bd-ctx-item-text">Edit Label</span><span class="bd-ctx-item-hint">double-click</span>',
-    '      </button>',
-    '      <button class="bd-ctx-item" id="bd-ctx-toggle-label">',
-    '        <span class="bd-ctx-check" id="bd-ctx-chk-label"></span><span class="bd-ctx-item-icon">&#9673;</span>',
-    '        <span class="bd-ctx-item-text" id="bd-ctx-tlbl-text">Show Label</span>',
-    '      </button>',
-    '      <button class="bd-ctx-item" id="bd-ctx-moveup">',
-    '        <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">&#8593;</span>',
-    '        <span class="bd-ctx-item-text">Move Up</span>',
-    '      </button>',
-    '      <button class="bd-ctx-item" id="bd-ctx-movedn">',
-    '        <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">&#8595;</span>',
-    '        <span class="bd-ctx-item-text">Move Down</span>',
-    '      </button>',
-    '      <button class="bd-ctx-item bd-ctx-item-danger" id="bd-ctx-delete">',
-    '        <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">&#10005;</span>',
-    '        <span class="bd-ctx-item-text">Delete Pin</span><span class="bd-ctx-item-hint">Del</span>',
-    '      </button>',
-    '    </div>',
-    '    <div class="bd-ctx-divider" id="bd-ctx-div-pin"></div>',
-    '    <button class="bd-ctx-item" id="bd-ctx-undo">',
-    '        <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">&#8630;</span>',
-    '        <span class="bd-ctx-item-text">Undo</span><span class="bd-ctx-item-hint">Ctrl+Z</span>',
-    '    </button>',
-    '    <button class="bd-ctx-item" id="bd-ctx-redo">',
-    '        <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">&#8631;</span>',
-    '        <span class="bd-ctx-item-text">Redo</span><span class="bd-ctx-item-hint">Ctrl+Y</span>',
-    '    </button>',
-    '    <button class="bd-ctx-item bd-ctx-item-danger" id="bd-ctx-clear-pins">',
-    '        <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">&#9108;</span>',
-    '        <span class="bd-ctx-item-text">Clear All Pins</span><span class="bd-ctx-item-hint">X</span>',
-    '    </button>',
-    '    <div class="bd-ctx-divider"></div>',
-    '    <button class="bd-ctx-item" id="bd-ctx-live-toggle">',
-    '      <span class="bd-ctx-check bd-ctx-checked" id="bd-ctx-chk-live">&#10003;</span>',
-    '      <span class="bd-ctx-item-icon">&#9673;</span><span class="bd-ctx-item-text">Live Labels</span><span class="bd-ctx-item-hint">V</span>',
-    '    </button>',
-    '    <button class="bd-ctx-item" id="bd-ctx-labels-vis">',
-    '      <span class="bd-ctx-check bd-ctx-checked" id="bd-ctx-chk-labels">&#10003;</span>',
-    '      <span class="bd-ctx-item-icon">&#9673;</span><span class="bd-ctx-item-text">Label Overlay</span><span class="bd-ctx-item-hint">L</span>',
-    '    </button>',
-    '    <button class="bd-ctx-item" id="bd-ctx-crosshair">',
-    '      <span class="bd-ctx-check bd-ctx-checked" id="bd-ctx-chk-cross">&#10003;</span>',
-    '      <span class="bd-ctx-item-icon">&#10011;</span><span class="bd-ctx-item-text">Crosshair</span><span class="bd-ctx-item-hint">C</span>',
-    '    </button>',
-    '    <button class="bd-ctx-item" id="bd-ctx-grid">',
-    '      <span class="bd-ctx-check" id="bd-ctx-chk-grid"></span>',
-    '      <span class="bd-ctx-item-icon">&#9638;</span><span class="bd-ctx-item-text" id="bd-ctx-grid-text">Grid: Off</span><span class="bd-ctx-item-hint">G</span>',
-    '    </button>',
-    '    <button class="bd-ctx-item" id="bd-ctx-snap">',
-    '      <span class="bd-ctx-check" id="bd-ctx-chk-snap"></span>',
-    '      <span class="bd-ctx-item-icon">&#8862;</span><span class="bd-ctx-item-text">Snap to Grid</span><span class="bd-ctx-item-hint">S</span>',
-    '    </button>',
-    '    <div class="bd-ctx-divider"></div>',
-    '    <button class="bd-ctx-item" id="bd-ctx-exp-ai">',
-    '      <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">&#129302;</span>',
-    '      <span class="bd-ctx-item-text">Export AI Prompt</span><span class="bd-ctx-item-hint">A</span>',
-    '    </button>',
-    '    <button class="bd-ctx-item" id="bd-ctx-exp-json">',
-    '      <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">{ }</span>',
-    '      <span class="bd-ctx-item-text">Export JSON</span><span class="bd-ctx-item-hint">J</span>',
-    '    </button>',
-    '    <button class="bd-ctx-item" id="bd-ctx-exp-css">',
-    '      <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">#</span>',
-    '      <span class="bd-ctx-item-text">Export CSS</span><span class="bd-ctx-item-hint">K</span>',
-    '    </button>',
-    '    <button class="bd-ctx-item" id="bd-ctx-exp-css-lbl">',
-    '      <span class="bd-ctx-check"></span><span class="bd-ctx-item-icon">&#9998;</span>',
-    '      <span class="bd-ctx-item-text">Export CSS + Labels</span><span class="bd-ctx-item-hint">&#8679;K</span>',
-    '    </button>',
+    '    <button class="bd-ctx-item" id="bd-ctx-delete">&#10005; Delete Point</button>',
+    '    <button class="bd-ctx-item" id="bd-ctx-label" >&#9998; Edit Label</button>',
+    '    <button class="bd-ctx-item" id="bd-ctx-moveup">&#8593; Move Up</button>',
+    '    <button class="bd-ctx-item" id="bd-ctx-movedn">&#8595; Move Down</button>',
     '  </div>',
 
     '  <div id="bd-label-modal" class="bd-modal-overlay" style="display:none">',
     '    <div class="bd-modal">',
-    '      <div class="bd-modal-title">&#9998; Edit Pin Label</div>',
-    '      <input type="text" id="bd-label-input" class="bd-modal-input" placeholder="e.g. left eye" maxlength="60" spellcheck="false">',
+    '      <div class="bd-modal-title">Edit Point Label</div>',
+    '      <input type="text" id="bd-label-input" class="bd-modal-input"',
+    '        placeholder="e.g. eye, nose, CTA button" maxlength="48" spellcheck="false">',
     '      <div class="bd-modal-actions">',
     '        <button class="bd-btn bd-btn-gold" id="bd-label-save">Save</button>',
     '        <button class="bd-btn"             id="bd-label-cancel">Cancel</button>',
@@ -385,180 +85,704 @@
     '    </div>',
     '  </div>',
 
-    '  <div id="bd-import-modal" class="bd-modal-overlay" style="display:none">',
-    '    <div class="bd-modal bd-modal-wide">',
-    '      <div class="bd-modal-title">&#8659; Import Label List</div>',
-    '      <textarea id="bd-import-textarea" class="bd-modal-textarea" placeholder=\'["left eye", "right eye"]\' spellcheck="false"></textarea>',
-    '      <div class="bd-modal-actions">',
-    '        <button class="bd-btn bd-btn-gold" id="bd-import-apply">Apply to Slots</button>',
-    '        <button class="bd-btn"             id="bd-import-clear">Clear All Slots</button>',
-    '        <button class="bd-btn"             id="bd-import-cancel">Cancel</button>',
-    '      </div>',
-    '    </div>',
-    '  </div>',
-
-    '  <div id="bd-ai-modal" class="bd-modal-overlay" style="display:none">',
-    '    <div class="bd-modal bd-modal-wide">',
-    '      <div class="bd-modal-title">&#129302; AI Meet Ducky</div>',
-    '      <textarea id="bd-ai-prompt-box" class="bd-modal-textarea bd-modal-textarea-tall" spellcheck="false" readonly></textarea>',
-    '      <div class="bd-modal-actions">',
-    '        <button class="bd-btn bd-btn-gold" id="bd-ai-copy-btn">&#9000; Copy Prompt</button>',
-    '        <button class="bd-btn"             id="bd-ai-cancel-btn">Close</button>',
-    '      </div>',
-    '    </div>',
-    '  </div>',
     '</div>'
   ].join('\n');
 
-  /* ════════════════════════════════════════════════════════════════
-     2. CSS — The Midnight Typography & Industrial Layout
-     ════════════════════════════════════════════════════════════════ */
-  var st = document.createElement('style');
-  st.id = 'bd-ducky-styles';
-  st.textContent = [
-    ':root { --gold: #c5a059; --bg-dark: #0a0a0a; --bg-menu: #0d0d0d; --text-bright: #e8e8e8; --text-dim: #9a9a9a; --border: #1e1e1e; --font: "Segoe UI", system-ui, sans-serif; }',
-    '#bd-wrap { display: flex; flex-direction: column; width: 100%; height: 100%; background: #000; color: var(--text-bright); font-family: var(--font); overflow: hidden; font-size: 13px; position: relative; }',
-    '.bd-toolbar { display: flex; height: 44px; background: #050505; border-bottom: 1px solid var(--border); padding: 0 12px; align-items: center; justify-content: space-between; z-index: 100; flex-shrink: 0; }',
-    '.bd-body { display: flex; flex: 1; overflow: hidden; position: relative; }',
-    '.bd-canvas-area { flex: 1; background: #000; position: relative; overflow: auto; display: flex; align-items: center; justify-content: center; user-select: none; }',
-    '.bd-panel { width: 270px; background: #080808; border-left: 1px solid var(--border); display: flex; flex-direction: column; z-index: 101; flex-shrink: 0; transition: width 0.2s ease; }',
-    '.bd-panel.bd-lp-expanded { width: 370px; }''.bd-lp-input { flex: 1; background: transparent; border: none; color: var(--text-bright); font-size: 14px; padding: 0 8px; outline: none; }',
-    '.bd-lp-row { display: flex; align-items: center; padding: 4px 8px; border-bottom: 1px solid #111; height: 32px; }',
-    '.bd-lp-num { color: #555; width: 22px; font-size: 13px; font-weight: 600; text-align: center; }',
-    '.bd-ctx-menu { position: fixed; width: 190px; background: rgba(13, 13, 13, 0.98); border: 1px solid #333; border-radius: 4px; padding: 4px 0; z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,0.8); backdrop-filter: blur(8px); }',
-    '.bd-ctx-item { width: 100%; display: flex; align-items: center; padding: 6px 12px; background: transparent; border: none; color: #ccc; cursor: pointer; text-align: left; transition: background 0.1s; position: relative; }',
-    '.bd-ctx-item:hover { background: #333; color: #fff; }',
-    '.bd-ctx-divider { height: 1px; background: #222; margin: 4px 0; }',
-    '.bd-ctx-check { width: 20px; color: var(--gold); font-weight: bold; font-size: 14px; }',
-    '.bd-ctx-item-text { flex: 1; }',
-    '.bd-ctx-item-hint { font-size: 10px; color: #666; }',
-    '.bd-pin { position: absolute; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--gold); background: rgba(0,0,0,0.5); transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; cursor: move; z-index: 10; font-weight: bold; color: var(--gold); text-shadow: 0 1px 2px #000; box-shadow: 0 0 10px rgba(0,0,0,0.4); }',
-    '.bd-pin-label { position: absolute; top: 28px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: var(--gold); padding: 2px 6px; border-radius: 4px; font-size: 11px; white-space: nowrap; pointer-events: none; }',
-    '/* v55 native-look context menu animations */',
-    '.bd-ctx-menu { animation: bd-pop 0.1s ease-out; transform-origin: top left; }',
-    '@keyframes bd-pop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }'
-  ].join('\n');
-  document.head.appendChild(st);
+  /* ── 2. DUCK IMAGE ──────────────────────────────────────────────── */
+  if (typeof DUCK_IMG === 'undefined') {
+    var _s = (document.currentScript || {}).src || '';
+    var _d = _s.substring(0, _s.lastIndexOf('/') + 1);
+    root.DUCK_IMG = _d ? (_d + '../../ducky.png') : './ducky.png';
+  }
 
-  /* ════════════════════════════════════════════════════════════════
-     3. THE ENGINE
-     ════════════════════════════════════════════════════════════════ */
-  var state = {
-    pins: [], history: [], future: [],
-    naturalWidth: 0, naturalHeight: 0,
-    config: { cross: true, labels: true, live: true, grid: 0, snap: false, expanded: false },
-    activePinIndex: -1
+  /* ── 3. INJECT CSS ──────────────────────────────────────────────── */
+  (function () {
+    if (document.getElementById('bd-ducky-inline')) return;
+    var st = document.createElement('style');
+    st.id = 'bd-ducky-inline';
+    st.textContent = [
+      '#bd-module-root{display:block;height:100%}',
+      '#bd-wrap{display:flex;flex-direction:column;height:100%;background:#000;color:#d8d8d8;font-family:"Rajdhani","Share Tech Mono",monospace;overflow:hidden;position:relative}',
+      '.bd-toolbar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#080808;border-bottom:1px solid #1e1e1e;flex-shrink:0;flex-wrap:wrap}',
+      '.bd-toolbar-left,.bd-toolbar-right{display:flex;gap:6px;align-items:center}',
+      '.bd-toolbar-center{flex:1;display:flex;justify-content:center;align-items:center;gap:10px}',
+      '.bd-module-badge{font-family:"Oswald",sans-serif;font-size:.72rem;font-weight:700;color:#c5a059;letter-spacing:3px;text-transform:uppercase;padding-right:10px;border-right:1px solid #222;margin-right:4px}',
+      '.bd-btn{background:#0d0d0d;border:1px solid #222;color:#888;font-family:"Share Tech Mono",monospace;font-size:.65rem;letter-spacing:1px;padding:4px 10px;border-radius:2px;cursor:pointer;transition:all .15s;white-space:nowrap;text-transform:uppercase}',
+      '.bd-btn:hover:not(:disabled){background:#141414;border-color:#333;color:#c5a059}',
+      '.bd-btn:disabled{opacity:.3;cursor:not-allowed}',
+      '.bd-btn-active{border-color:#c5a059 !important;color:#c5a059 !important}',
+      '.bd-btn-gold{background:rgba(197,160,89,.08);border-color:rgba(197,160,89,.3);color:#c5a059}',
+      '.bd-btn-gold:hover:not(:disabled){background:rgba(197,160,89,.16)}',
+      '.bd-btn-export{min-width:54px}',
+      '.bd-coord-pill,.bd-count-pill,.bd-status-pill{font-family:"Share Tech Mono",monospace;font-size:.7rem;letter-spacing:1.5px;padding:3px 10px;border-radius:2px;border:1px solid #1e1e1e;background:#080808;color:#c5a059;white-space:nowrap}',
+      '.bd-count-pill{color:#4db8ff;border-color:rgba(77,184,255,.15)}',
+      '.bd-status-pill{flex:1;color:#555;text-align:left;border:none;background:transparent}',
+      '.bd-url-bar{display:flex;gap:6px;padding:6px 12px;background:#080808;border-bottom:1px solid #181818;flex-shrink:0}',
+      '.bd-url-input{flex:1;background:#0a0a0a;border:1px solid #222;color:#c5a059;font-family:"Share Tech Mono",monospace;font-size:.68rem;padding:5px 10px;border-radius:2px;outline:none;letter-spacing:.5px}',
+      '.bd-url-input:focus{border-color:rgba(197,160,89,.5)}',
+      '.bd-url-input::placeholder{color:#333}',
+      '.bd-canvas-area{flex:1;position:relative;overflow:auto;background:#050505;display:flex;align-items:center;justify-content:center;min-height:0}',
+      '.bd-drop-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;width:100%;height:100%;border:2px dashed #1e1e1e;border-radius:4px;cursor:pointer;transition:border-color .2s,background .2s;position:absolute;inset:0}',
+      '.bd-drop-zone:hover,.bd-drag-over{border-color:rgba(197,160,89,.4);background:rgba(197,160,89,.03)}',
+      '.bd-drop-icon{font-size:3rem;opacity:.4}',
+      '.bd-drop-title{font-family:"Oswald",sans-serif;font-size:1.1rem;color:#555;letter-spacing:3px;text-transform:uppercase}',
+      '.bd-drop-sub{font-family:"Share Tech Mono",monospace;font-size:.58rem;color:#333;letter-spacing:1px}',
+      '.bd-image-area{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:absolute;inset:0;overflow:auto;padding:12px}',
+      '.bd-image-wrap{position:relative;display:inline-block;cursor:crosshair;max-width:100%;max-height:100%;flex-shrink:0}',
+      '.bd-main-img{display:block;max-width:100%;max-height:calc(100vh - 220px);width:auto;height:auto;pointer-events:none;user-select:none}',
+      '.bd-canvas-overlay{position:absolute;top:0;left:0;pointer-events:none}',
+      '.bd-cursor-canvas{z-index:10}',
+      '.bd-grid-canvas{z-index:5}',
+      '.bd-points-layer{position:absolute;inset:0;pointer-events:none;z-index:20}',
+      '.bd-point-ring{position:absolute;width:22px;height:22px;transform:translate(-50%,-50%);pointer-events:all;cursor:grab}',
+      '.bd-point-ring:active{cursor:grabbing}',
+      '.bd-point-dot{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:7px;height:7px;border-radius:50%;background:#c5a059;box-shadow:0 0 0 2px #000,0 0 0 3.5px #c5a059}',
+      '.bd-point-ring:hover .bd-point-dot{background:#e2b96f;box-shadow:0 0 0 2px #000,0 0 0 3.5px #e2b96f,0 0 10px rgba(197,160,89,.6)}',
+      '.bd-point-num{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-family:"Share Tech Mono",monospace;font-size:9px;color:#c5a059;background:rgba(0,0,0,.75);padding:1px 3px;border-radius:2px;white-space:nowrap;pointer-events:none;line-height:1.3}',
+      '.bd-point-label{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-family:"Share Tech Mono",monospace;font-size:8px;color:#4db8ff;background:rgba(0,0,0,.8);padding:1px 4px;border-radius:2px;white-space:nowrap;pointer-events:none;border:1px solid rgba(77,184,255,.2)}',
+      '.bd-export-bar{display:flex;align-items:center;gap:6px;padding:6px 12px;background:#080808;border-top:1px solid #181818;flex-shrink:0;flex-wrap:wrap}',
+      '.bd-output-wrap{flex-shrink:0;max-height:160px;border-top:1px solid #1e1e1e}',
+      '.bd-output{width:100%;height:160px;background:#030303;border:none;border-top:1px solid #181818;color:#00e87a;font-family:"Share Tech Mono",monospace;font-size:.68rem;padding:10px 14px;resize:none;outline:none;line-height:1.6;letter-spacing:.3px}',
+      '.bd-ctx-menu{position:fixed;background:#0d0d0d;border:1px solid #2e2e2e;border-radius:3px;padding:3px 0;z-index:9000;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,.8)}',
+      '.bd-ctx-item{display:block;width:100%;text-align:left;padding:7px 14px;font-family:"Share Tech Mono",monospace;font-size:.65rem;letter-spacing:1px;color:#888;background:none;border:none;cursor:pointer;text-transform:uppercase;transition:all .12s}',
+      '.bd-ctx-item:hover:not(:disabled){background:rgba(197,160,89,.06);color:#c5a059}',
+      '.bd-ctx-item:disabled{opacity:.25;cursor:not-allowed}',
+      '.bd-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9100;backdrop-filter:blur(4px)}',
+      '.bd-modal{background:#0d0d0d;border:1px solid rgba(197,160,89,.3);border-radius:4px;padding:22px 24px;min-width:300px;box-shadow:0 16px 60px rgba(0,0,0,.9)}',
+      '.bd-modal-title{font-family:"Oswald",sans-serif;font-size:.8rem;font-weight:700;color:#c5a059;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px}',
+      '.bd-modal-input{width:100%;background:#080808;border:1px solid #2e2e2e;color:#d8d8d8;font-family:"Share Tech Mono",monospace;font-size:.78rem;padding:7px 10px;border-radius:2px;outline:none;margin-bottom:14px}',
+      '.bd-modal-input:focus{border-color:rgba(197,160,89,.5)}',
+      '.bd-modal-actions{display:flex;gap:8px;justify-content:flex-end}'
+    ].join('\n');
+    document.head.appendChild(st);
+  })();
+
+  /* ── 4. MOUNT DOM ───────────────────────────────────────────────── */
+  var _mountEl = document.getElementById('bd-module-root');
+  if (!_mountEl) {
+    console.error('[BeDucky] #bd-module-root not found.');
+    return;
+  }
+  _mountEl.innerHTML = _MODULE_HTML;
+
+  /* ── 5. STATE ───────────────────────────────────────────────────── */
+  var points       = [];
+  var undoStack    = [];
+  var redoStack    = [];
+  var imgNatW      = 0;
+  var imgNatH      = 0;
+  var imgDispW     = 0;
+  var imgDispH     = 0;
+  var imgLoaded    = false;
+  var ctxMenuOpen  = false;
+  var ctxTargetIdx = -1;
+  var activeLabel  = '';
+  var gridMode     = 'none';
+  var showCrosshair= true;
+  var snapToGrid   = false;
+  var isDragging   = false;
+  var dragIdx      = -1;
+  var dragOffX     = 0;
+  var dragOffY     = 0;
+
+  /* ── 6. DOM REFS ────────────────────────────────────────────────── */
+  function _q(sel) { return _mountEl.querySelector(sel); }
+
+  var $dropZone     = _q('#bd-drop-zone');
+  var $imageArea    = _q('#bd-image-area');
+  var $img          = _q('#bd-main-img');
+  var $gridCanvas   = _q('#bd-grid-canvas');
+  var $cursorCanvas = _q('#bd-cursor-canvas');
+  var $pointsLayer  = _q('#bd-points-layer');
+  var $fileInput    = _q('#bd-file-input');
+  var $urlInput     = _q('#bd-url-input');
+  var $loadUrlBtn   = _q('#bd-load-url-btn');
+  var $clearBtn     = _q('#bd-clear-btn');
+  var $undoBtn      = _q('#bd-undo-btn');
+  var $redoBtn      = _q('#bd-redo-btn');
+  var $exportCss    = _q('#bd-export-css');
+  var $exportJson   = _q('#bd-export-json');
+  var $exportAi     = _q('#bd-export-ai');
+  var $copyAll      = _q('#bd-copy-all');
+  var $outputBox    = _q('#bd-output');
+  var $ctxMenu      = _q('#bd-ctx-menu');
+  var $ctxDelete    = _q('#bd-ctx-delete');
+  var $ctxLabel     = _q('#bd-ctx-label');
+  var $ctxMoveUp    = _q('#bd-ctx-moveup');
+  var $ctxMoveDn    = _q('#bd-ctx-movedn');
+  var $labelModal   = _q('#bd-label-modal');
+  var $labelInput   = _q('#bd-label-input');
+  var $labelSave    = _q('#bd-label-save');
+  var $labelCancel  = _q('#bd-label-cancel');
+  var $gridBtn      = _q('#bd-grid-btn');
+  var $snapBtn      = _q('#bd-snap-btn');
+  var $crossBtn     = _q('#bd-cross-btn');
+  var $resetImg     = _q('#bd-reset-img');
+  var $coordDisplay = _q('#bd-coord-display');
+  var $countDisplay = _q('#bd-count-display');
+  var $statusMsg    = _q('#bd-status');
+
+  /* ── 7. CANVAS CONTEXTS ─────────────────────────────────────────── */
+  var gCtx = $gridCanvas   ? $gridCanvas.getContext('2d')   : null;
+  var cCtx = $cursorCanvas ? $cursorCanvas.getContext('2d') : null;
+
+  /* ── 8. IMAGE LOAD ──────────────────────────────────────────────── */
+  function loadImageSrc(src) {
+    imgLoaded = false;
+    $img.src  = '';
+    $img.classList.remove('vj-artwork__img--loaded');
+    $img.classList.add('vj-artwork__img');
+    $dropZone.style.display  = 'none';
+    $imageArea.style.display = 'flex';
+
+    $img.onload = function () {
+      imgNatW   = $img.naturalWidth;
+      imgNatH   = $img.naturalHeight;
+      imgLoaded = true;
+      points    = [];
+      undoStack = [];
+      redoStack = [];
+
+      requestAnimationFrame(function () {
+        _measureImage();
+        resizeGridCanvas();
+        resizeCursorCanvas();
+        renderGrid();
+        renderPoints();
+        updateCtxMenuState();
+        _setStatus('Image loaded \u00b7 ' + imgNatW + ' \u00d7 ' + imgNatH + ' px \u00b7 Click to plot');
+        if (root.VJ && root.VJ.updateRes)  root.VJ.updateRes(imgNatW, imgNatH);
+        if (root.VJ && root.VJ.snapImage)  root.VJ.snapImage($img);
+      });
+    };
+
+    $img.onerror = function () {
+      _setStatus('\u26a0 Could not load image. Try another URL or file.');
+      $dropZone.style.display  = 'flex';
+      $imageArea.style.display = 'none';
+    };
+
+    $img.src = src;
+  }
+
+  function _measureImage() {
+    var r = $img.getBoundingClientRect();
+    imgDispW = r.width;
+    imgDispH = r.height;
+  }
+
+  /* ── 9. COORDINATE CONVERSION ───────────────────────────────────── */
+  function _toNatural(ex, ey) {
+    var r  = $img.getBoundingClientRect();
+    var lx = ex - r.left;
+    var ly = ey - r.top;
+    var nx = Math.round((lx / r.width)  * imgNatW);
+    var ny = Math.round((ly / r.height) * imgNatH);
+    nx = Math.max(0, Math.min(imgNatW, nx));
+    ny = Math.max(0, Math.min(imgNatH, ny));
+    return { x: nx, y: ny };
+  }
+
+  function _toDisplay(nx, ny) {
+    _measureImage();
+    return {
+      x: (nx / imgNatW) * imgDispW,
+      y: (ny / imgNatH) * imgDispH
+    };
+  }
+
+  /* ── 10. UNDO / REDO ────────────────────────────────────────────── */
+  function _pushUndo() {
+    undoStack.push(JSON.stringify(points));
+    if (undoStack.length > 60) undoStack.shift();
+    redoStack = [];
+    _updateUndoBtns();
+  }
+
+  function _updateUndoBtns() {
+    if ($undoBtn) $undoBtn.disabled = undoStack.length === 0;
+    if ($redoBtn) $redoBtn.disabled = redoStack.length === 0;
+  }
+
+  function doUndo() {
+    if (!undoStack.length) return;
+    redoStack.push(JSON.stringify(points));
+    points = JSON.parse(undoStack.pop());
+    renderPoints(); updateCtxMenuState(); _updateUndoBtns();
+    _setStatus('Undo \u00b7 ' + points.length + ' point' + (points.length !== 1 ? 's' : ''));
+  }
+
+  function doRedo() {
+    if (!redoStack.length) return;
+    undoStack.push(JSON.stringify(points));
+    points = JSON.parse(redoStack.pop());
+    renderPoints(); updateCtxMenuState(); _updateUndoBtns();
+    _setStatus('Redo \u00b7 ' + points.length + ' point' + (points.length !== 1 ? 's' : ''));
+  }
+
+  /* ── 11. POINT OPERATIONS ───────────────────────────────────────── */
+  function _addPoint(nx, ny) {
+    _pushUndo();
+    points.push({ x: nx, y: ny, label: activeLabel });
+    renderPoints(); updateCtxMenuState();
+    _setStatus('Point ' + points.length + ' \u2192 ' + nx + ', ' + ny);
+  }
+
+  function _deletePoint(idx) {
+    if (idx < 0 || idx >= points.length) return;
+    _pushUndo(); points.splice(idx, 1);
+    renderPoints(); updateCtxMenuState();
+  }
+
+  function _movePointUp(idx) {
+    if (idx <= 0) return;
+    _pushUndo();
+    var t = points[idx]; points[idx] = points[idx-1]; points[idx-1] = t;
+    renderPoints();
+  }
+
+  function _movePointDown(idx) {
+    if (idx >= points.length - 1) return;
+    _pushUndo();
+    var t = points[idx]; points[idx] = points[idx+1]; points[idx+1] = t;
+    renderPoints();
+  }
+
+  /* ── 12. RENDER POINTS ──────────────────────────────────────────── */
+  function renderPoints() {
+    if (!$pointsLayer) return;
+    $pointsLayer.innerHTML = '';
+    if (!imgLoaded) return;
+    _measureImage();
+
+    points.forEach(function (pt, i) {
+      var dp = _toDisplay(pt.x, pt.y);
+
+      var ring = document.createElement('div');
+      ring.className  = 'bd-point-ring';
+      ring.style.left = dp.x + 'px';
+      ring.style.top  = dp.y + 'px';
+
+      var dot = document.createElement('div');
+      dot.className = 'bd-point-dot';
+
+      var num = document.createElement('div');
+      num.className   = 'bd-point-num';
+      num.textContent = i + 1;
+
+      ring.appendChild(dot);
+      ring.appendChild(num);
+
+      if (pt.label) {
+        var lbl = document.createElement('div');
+        lbl.className   = 'bd-point-label';
+        lbl.textContent = pt.label;
+        ring.appendChild(lbl);
+      }
+
+      /* Context menu on right-click */
+      (function (idx) {
+        ring.addEventListener('contextmenu', function (e) {
+          e.preventDefault(); e.stopPropagation();
+          _openCtxMenu(e.clientX, e.clientY, idx);
+        });
+        /* Drag start */
+        ring.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;
+          e.stopPropagation();
+          isDragging = true;
+          dragIdx    = idx;
+          var r2  = $img.getBoundingClientRect();
+          var dp2 = _toDisplay(pt.x, pt.y);
+          dragOffX = e.clientX - (r2.left + dp2.x);
+          dragOffY = e.clientY - (r2.top  + dp2.y);
+        });
+      }(i));
+
+      $pointsLayer.appendChild(ring);
+    });
+
+    if ($countDisplay) $countDisplay.textContent = points.length + ' pt' + (points.length !== 1 ? 's' : '');
+  }
+
+  /* ── 13. GRID CANVAS ────────────────────────────────────────────── */
+  function resizeGridCanvas() {
+    if (!$gridCanvas || !$img || !imgLoaded) return;
+    var r = $img.getBoundingClientRect();
+    $gridCanvas.width  = Math.round(r.width);
+    $gridCanvas.height = Math.round(r.height);
+    $gridCanvas.style.width  = r.width  + 'px';
+    $gridCanvas.style.height = r.height + 'px';
+    renderGrid();
+  }
+
+  function renderGrid() {
+    if (!gCtx || !imgLoaded) return;
+    var w = $gridCanvas.width, h = $gridCanvas.height;
+    gCtx.clearRect(0, 0, w, h);
+    if (gridMode === 'none') return;
+
+    gCtx.lineWidth = 1;
+
+    if (gridMode === 'rule3' || gridMode === 'full') {
+      gCtx.strokeStyle = 'rgba(197,160,89,0.35)';
+      [1/3, 2/3].forEach(function (t) {
+        gCtx.beginPath(); gCtx.moveTo(t*w, 0); gCtx.lineTo(t*w, h); gCtx.stroke();
+        gCtx.beginPath(); gCtx.moveTo(0, t*h); gCtx.lineTo(w, t*h); gCtx.stroke();
+      });
+    }
+    if (gridMode === 'center' || gridMode === 'full') {
+      gCtx.strokeStyle = 'rgba(77,184,255,0.4)';
+      gCtx.beginPath(); gCtx.moveTo(w/2, 0); gCtx.lineTo(w/2, h); gCtx.stroke();
+      gCtx.beginPath(); gCtx.moveTo(0, h/2); gCtx.lineTo(w, h/2); gCtx.stroke();
+    }
+    if (gridMode === 'full') {
+      gCtx.strokeStyle = 'rgba(197,160,89,0.1)';
+      var step = Math.round(Math.min(w, h) / 10);
+      if (step > 0) {
+        for (var x = 0; x <= w; x += step) { gCtx.beginPath(); gCtx.moveTo(x,0); gCtx.lineTo(x,h); gCtx.stroke(); }
+        for (var y = 0; y <= h; y += step) { gCtx.beginPath(); gCtx.moveTo(0,y); gCtx.lineTo(w,y); gCtx.stroke(); }
+      }
+    }
+  }
+
+  /* ── 14. CURSOR CANVAS ──────────────────────────────────────────── */
+  function resizeCursorCanvas() {
+    if (!$cursorCanvas || !$img || !imgLoaded) return;
+    var r = $img.getBoundingClientRect();
+    $cursorCanvas.width  = Math.round(r.width);
+    $cursorCanvas.height = Math.round(r.height);
+    $cursorCanvas.style.width  = r.width  + 'px';
+    $cursorCanvas.style.height = r.height + 'px';
+  }
+
+  function _renderCursor(lx, ly) {
+    if (!cCtx || !imgLoaded) return;
+    var w = $cursorCanvas.width, h = $cursorCanvas.height;
+    cCtx.clearRect(0, 0, w, h);
+    if (!showCrosshair) return;
+
+    cCtx.strokeStyle = 'rgba(197,160,89,0.65)';
+    cCtx.lineWidth   = 1;
+    cCtx.setLineDash([4, 4]);
+    cCtx.beginPath(); cCtx.moveTo(0, ly); cCtx.lineTo(w, ly); cCtx.stroke();
+    cCtx.beginPath(); cCtx.moveTo(lx, 0); cCtx.lineTo(lx, h); cCtx.stroke();
+
+    cCtx.setLineDash([]);
+    cCtx.strokeStyle = 'rgba(255,255,255,0.9)';
+    cCtx.lineWidth   = 1.5;
+    cCtx.beginPath(); cCtx.arc(lx, ly, 4, 0, Math.PI * 2); cCtx.stroke();
+  }
+
+  /* ── 15. CONTEXT MENU ───────────────────────────────────────────── */
+  function _openCtxMenu(cx, cy, idx) {
+    ctxTargetIdx = idx;
+    ctxMenuOpen  = true;
+    var mw = 170, mh = 140;
+    var left = (cx + mw > window.innerWidth)  ? cx - mw : cx;
+    var top  = (cy + mh > window.innerHeight) ? cy - mh : cy;
+    $ctxMenu.style.left    = left + 'px';
+    $ctxMenu.style.top     = top  + 'px';
+    $ctxMenu.style.display = 'block';
+    if ($ctxMoveUp) $ctxMoveUp.disabled = (idx === 0);
+    if ($ctxMoveDn) $ctxMoveDn.disabled = (idx === points.length - 1);
+  }
+
+  function _closeCtxMenu() {
+    ctxMenuOpen  = false;
+    ctxTargetIdx = -1;
+    if ($ctxMenu) $ctxMenu.style.display = 'none';
+  }
+
+  function updateCtxMenuState() {
+    _updateUndoBtns();
+    if ($clearBtn)   $clearBtn.disabled   = points.length === 0;
+    if ($exportCss)  $exportCss.disabled  = points.length === 0;
+    if ($exportJson) $exportJson.disabled = points.length === 0;
+    if ($exportAi)   $exportAi.disabled   = points.length === 0;
+    if ($copyAll)    $copyAll.disabled    = points.length === 0;
+  }
+
+  /* ── 16. LABEL MODAL ────────────────────────────────────────────── */
+  function _openLabelModal(idx) {
+    ctxTargetIdx = idx;
+    if (!$labelModal) return;
+    $labelInput.value = (idx >= 0 && points[idx]) ? (points[idx].label || '') : activeLabel;
+    $labelModal.style.display = 'flex';
+    setTimeout(function () { if ($labelInput) { $labelInput.focus(); $labelInput.select(); } }, 50);
+  }
+
+  function _closeLabelModal() {
+    if ($labelModal) $labelModal.style.display = 'none';
+  }
+
+  function _saveLabelModal() {
+    var val = ($labelInput ? $labelInput.value.trim() : '');
+    if (ctxTargetIdx >= 0 && points[ctxTargetIdx]) {
+      _pushUndo();
+      points[ctxTargetIdx].label = val;
+      renderPoints();
+    } else {
+      activeLabel = val;
+    }
+    _closeLabelModal();
+  }
+
+  /* ── 17. EXPORT ─────────────────────────────────────────────────── */
+  function _buildCss() {
+    if (!points.length) return '/* No points plotted */';
+    return points.map(function (pt, i) {
+      var c = pt.label ? ' /* ' + pt.label + ' */' : '';
+      return '.point-' + (i+1) + ' { left: ' + pt.x + 'px; top: ' + pt.y + 'px; }' + c;
+    }).join('\n');
+  }
+
+  function _buildJson() {
+    return JSON.stringify({
+      naturalSize: { width: imgNatW, height: imgNatH },
+      points: points.map(function (pt, i) {
+        return { index: i+1, x: pt.x, y: pt.y, label: pt.label || '' };
+      })
+    }, null, 2);
+  }
+
+  function _buildAi() {
+    return [
+      'Image natural dimensions: ' + imgNatW + ' \u00d7 ' + imgNatH + ' px',
+      'Coordinate system: top-left origin (0,0)',
+      'Points plotted (' + points.length + '):',
+      ''
+    ].concat(points.map(function (pt, i) {
+      return '  ' + (i+1) + '. x=' + pt.x + ', y=' + pt.y + (pt.label ? ' \u2014 ' + pt.label : '');
+    })).concat([
+      '',
+      'Use these coordinates for CSS positioning, SVG placement, canvas drawing, or spatial AI prompting.'
+    ]).join('\n');
+  }
+
+  function _showOutput(text) {
+    if ($outputBox) {
+      $outputBox.value = text;
+      $outputBox.parentElement.style.display = 'block';
+      $outputBox.focus();
+      $outputBox.select();
+    }
+  }
+
+  function _copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { _setStatus('\u2713 Copied to clipboard'); })
+        .catch(function () { _fallbackCopy(text); });
+    } else { _fallbackCopy(text); }
+  }
+
+  function _fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { document.execCommand('copy'); _setStatus('\u2713 Copied'); } catch(e) {}
+    document.body.removeChild(ta);
+  }
+
+  function _setStatus(msg) {
+    if ($statusMsg) $statusMsg.textContent = msg;
+  }
+
+  /* ── 18. DRAG-AND-DROP FILE ─────────────────────────────────────── */
+  $dropZone.addEventListener('dragover',  function (e) { e.preventDefault(); $dropZone.classList.add('bd-drag-over'); });
+  $dropZone.addEventListener('dragleave', function ()  { $dropZone.classList.remove('bd-drag-over'); });
+  $dropZone.addEventListener('drop', function (e) {
+    e.preventDefault(); $dropZone.classList.remove('bd-drag-over');
+    var f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) {
+      var r = new FileReader();
+      r.onload = function (ev) { loadImageSrc(ev.target.result); };
+      r.readAsDataURL(f);
+    }
+  });
+  $dropZone.addEventListener('click', function () { $fileInput.click(); });
+  $fileInput.addEventListener('change', function () {
+    var f = $fileInput.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function (ev) { loadImageSrc(ev.target.result); };
+    r.readAsDataURL(f);
+  });
+
+  /* ── 19. URL LOAD ───────────────────────────────────────────────── */
+  $loadUrlBtn.addEventListener('click', function () {
+    var url = $urlInput.value.trim();
+    if (url) loadImageSrc(url);
+  });
+  $urlInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') $loadUrlBtn.click();
+  });
+
+  /* ── 20. IMAGE MOUSE EVENTS ─────────────────────────────────────── */
+  $imageArea.addEventListener('mousemove', function (e) {
+    if (!imgLoaded) return;
+    var r  = $img.getBoundingClientRect();
+    var lx = e.clientX - r.left;
+    var ly = e.clientY - r.top;
+    if (lx < 0 || ly < 0 || lx > r.width || ly > r.height) return;
+
+    _renderCursor(lx, ly);
+    var c = _toNatural(e.clientX, e.clientY);
+    if ($coordDisplay) $coordDisplay.textContent = c.x + ', ' + c.y;
+    if (root.VJ && root.VJ.updateHUD) root.VJ.updateHUD(c.x, c.y);
+  });
+
+  $imageArea.addEventListener('mouseleave', function () {
+    if (cCtx) cCtx.clearRect(0, 0, $cursorCanvas.width, $cursorCanvas.height);
+    if ($coordDisplay) $coordDisplay.textContent = '\u2014, \u2014';
+  });
+
+  $imageArea.addEventListener('click', function (e) {
+    if (!imgLoaded || isDragging) return;
+    if (e.target.closest && e.target.closest('.bd-point-ring')) return;
+    if (ctxMenuOpen) { _closeCtxMenu(); return; }
+
+    var c = _toNatural(e.clientX, e.clientY);
+    var nx = c.x, ny = c.y;
+
+    if (snapToGrid && imgNatW > 0) {
+      var step = Math.round(Math.min(imgNatW, imgNatH) / 10);
+      if (step > 0) { nx = Math.round(nx / step) * step; ny = Math.round(ny / step) * step; }
+    }
+
+    _addPoint(nx, ny);
+  });
+
+  $imageArea.addEventListener('contextmenu', function (e) { e.preventDefault(); _closeCtxMenu(); });
+
+  /* Drag move & up — bound on document so it works outside the image */
+  document.addEventListener('mousemove', function (e) {
+    if (!isDragging || dragIdx < 0) return;
+    var r  = $img.getBoundingClientRect();
+    var lx = (e.clientX - dragOffX) - r.left;
+    var ly = (e.clientY - dragOffY) - r.top;
+    var nx = Math.max(0, Math.min(imgNatW, Math.round((lx / r.width)  * imgNatW)));
+    var ny = Math.max(0, Math.min(imgNatH, Math.round((ly / r.height) * imgNatH)));
+    points[dragIdx].x = nx;
+    points[dragIdx].y = ny;
+    renderPoints();
+    if ($coordDisplay) $coordDisplay.textContent = nx + ', ' + ny;
+  });
+
+  document.addEventListener('mouseup', function () {
+    if (isDragging) { isDragging = false; dragIdx = -1; renderPoints(); }
+  });
+
+  document.addEventListener('click', function (e) {
+    if (ctxMenuOpen && $ctxMenu && !$ctxMenu.contains(e.target)) _closeCtxMenu();
+  });
+
+  /* ── 21. CONTEXT MENU ACTIONS ───────────────────────────────────── */
+  if ($ctxDelete) $ctxDelete.addEventListener('click', function () { _deletePoint(ctxTargetIdx); _closeCtxMenu(); });
+  if ($ctxLabel)  $ctxLabel.addEventListener('click',  function () { var i = ctxTargetIdx; _closeCtxMenu(); _openLabelModal(i); });
+  if ($ctxMoveUp) $ctxMoveUp.addEventListener('click', function () { _movePointUp(ctxTargetIdx); _closeCtxMenu(); });
+  if ($ctxMoveDn) $ctxMoveDn.addEventListener('click', function () { _movePointDown(ctxTargetIdx); _closeCtxMenu(); });
+
+  /* ── 22. TOOLBAR ACTIONS ────────────────────────────────────────── */
+  if ($clearBtn) $clearBtn.addEventListener('click', function () {
+    if (!points.length) return;
+    _pushUndo(); points = [];
+    renderPoints(); updateCtxMenuState();
+    _setStatus('All points cleared');
+  });
+  if ($undoBtn) $undoBtn.addEventListener('click', doUndo);
+  if ($redoBtn) $redoBtn.addEventListener('click', doRedo);
+
+  if ($resetImg) $resetImg.addEventListener('click', function () {
+    imgLoaded = false; points = []; undoStack = []; redoStack = [];
+    $img.src = '';
+    $imageArea.style.display = 'none';
+    $dropZone.style.display  = 'flex';
+    if ($outputBox) $outputBox.parentElement.style.display = 'none';
+    renderPoints(); updateCtxMenuState();
+    _setStatus('Ready \u00b7 Drop an image or paste a URL');
+    if (root.VJ && root.VJ.updateHUD) root.VJ.updateHUD(0, 0);
+    if (root.VJ && root.VJ.updateRes) root.VJ.updateRes(0, 0);
+  });
+
+  if ($gridBtn) $gridBtn.addEventListener('click', function () {
+    var modes = ['none','rule3','center','full'];
+    gridMode  = modes[(modes.indexOf(gridMode) + 1) % modes.length];
+    var labels = { none:'Grid: Off', rule3:'Grid: 1/3', center:'Grid: +', full:'Grid: All' };
+    $gridBtn.textContent = labels[gridMode];
+    renderGrid();
+  });
+
+  if ($snapBtn) $snapBtn.addEventListener('click', function () {
+    snapToGrid = !snapToGrid;
+    $snapBtn.classList.toggle('bd-btn-active', snapToGrid);
+    _setStatus('Snap: ' + (snapToGrid ? 'ON' : 'OFF'));
+  });
+
+  if ($crossBtn) $crossBtn.addEventListener('click', function () {
+    showCrosshair = !showCrosshair;
+    $crossBtn.classList.toggle('bd-btn-active', showCrosshair);
+    if (!showCrosshair && cCtx) cCtx.clearRect(0, 0, $cursorCanvas.width, $cursorCanvas.height);
+  });
+
+  /* ── 23. EXPORT BUTTONS ─────────────────────────────────────────── */
+  if ($exportCss)  $exportCss.addEventListener('click',  function () { _showOutput(_buildCss());  _setStatus('CSS exported \u00b7 ' + points.length + ' rules'); });
+  if ($exportJson) $exportJson.addEventListener('click', function () { _showOutput(_buildJson()); _setStatus('JSON exported \u00b7 ' + points.length + ' points'); });
+  if ($exportAi)   $exportAi.addEventListener('click',   function () { _showOutput(_buildAi());  _setStatus('AI prompt exported'); });
+  if ($copyAll) $copyAll.addEventListener('click', function () {
+    _copyToClipboard($outputBox && $outputBox.value ? $outputBox.value : _buildJson());
+  });
+
+  /* ── 24. LABEL MODAL BUTTONS ────────────────────────────────────── */
+  if ($labelSave)   $labelSave.addEventListener('click',   _saveLabelModal);
+  if ($labelCancel) $labelCancel.addEventListener('click', _closeLabelModal);
+  if ($labelInput)  $labelInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter')  _saveLabelModal();
+    if (e.key === 'Escape') _closeLabelModal();
+  });
+
+  /* ── 25. KEYBOARD SHORTCUTS ─────────────────────────────────────── */
+  document.addEventListener('keydown', function (e) {
+    if (!_mountEl.classList.contains('vj-mod--active')) return;
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); doUndo(); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); doRedo(); return; }
+    if ((e.key === 'Backspace' || e.key === 'Delete') && !e.target.matches('input,textarea,select')) {
+      if (points.length) _deletePoint(points.length - 1);
+    }
+    if (e.key === 'Escape') { _closeCtxMenu(); _closeLabelModal(); }
+  });
+
+  /* ── 26. WINDOW RESIZE ──────────────────────────────────────────── */
+  var _rTimer;
+  window.addEventListener('resize', function () {
+    clearTimeout(_rTimer);
+    _rTimer = setTimeout(function () {
+      if (!imgLoaded) return;
+      _measureImage();
+      resizeGridCanvas();
+      resizeCursorCanvas();
+      renderPoints();
+    }, 120);
+  });
+
+  /* ── 27. EXPOSE GLOBALS (shell calls these after script load) ───── */
+  root.resizeGridCanvas   = resizeGridCanvas;
+  root.resizeCursorCanvas = resizeCursorCanvas;
+  root.renderPoints       = renderPoints;
+  root.updateCtxMenuState = updateCtxMenuState;
+
+  /* ── 28. INIT ───────────────────────────────────────────────────── */
+  updateCtxMenuState();
+  _setStatus('Ready \u00b7 Drop an image or paste a URL to begin');
+
+  root.BeDucky = {
+    getPoints:   function () { return points.slice(); },
+    loadImage:   loadImageSrc,
+    clearPoints: function () { _pushUndo(); points = []; renderPoints(); updateCtxMenuState(); }
   };
 
-  function init() {
-    var host = document.getElementById('bd-host') || document.body;
-    var container = document.createElement('div');
-    container.innerHTML = _MODULE_HTML;
-    host.appendChild(container);
-    bindEvents();
-    render();
-  }
+  console.log('[BeDucky] v50 mounted OK.');
 
-  function bindEvents() {
-    // Canvas Click Logic
-    document.getElementById('bd-image-area').addEventListener('click', function(e) {
-      if (e.target.closest('.bd-pin')) return;
-      var rect = document.getElementById('bd-main-img').getBoundingClientRect();
-      var x = Math.round((e.clientX - rect.left) * (state.naturalWidth / rect.width));
-      var y = Math.round((e.clientY - rect.top) * (state.naturalHeight / rect.height));
-      addPin(x, y);
-    });
-
-    // Right Click Logic (v55 Restoration)
-    window.addEventListener('contextmenu', function(e) {
-      var pin = e.target.closest('.bd-pin');
-      var menu = document.getElementById('bd-ctx-menu');
-      if (!e.target.closest('#bd-wrap')) return;
-      
-      e.preventDefault();
-      menu.style.display = 'block';
-      menu.style.left = e.clientX + 'px';
-      menu.style.top = e.clientY + 'px';
-      
-      var pinGroup = document.getElementById('bd-ctx-pin-group');
-      var pinDivider = document.getElementById('bd-ctx-div-pin');
-      if (pin) {
-        state.activePinIndex = parseInt(pin.dataset.idx);
-        pinGroup.style.display = 'block';
-        pinDivider.style.display = 'block';
-        document.getElementById('bd-ctx-header-text').textContent = 'Pin ' + (state.activePinIndex + 1);
-      } else {
-        pinGroup.style.display = 'none';
-        pinDivider.style.display = 'none';
-      }
-    });
-
-    // Global Close Context
-    window.addEventListener('mousedown', function(e) {
-      if (!e.target.closest('#bd-ctx-menu')) {
-        document.getElementById('bd-ctx-menu').style.display = 'none';
-      }
-    });
-
-    // Tab Logic
-    document.querySelectorAll('.bd-tab').forEach(function(btn) {
-      btn.onclick = function() {
-        document.querySelectorAll('.bd-tab').forEach(b => b.classList.remove('bd-tab-active'));
-        document.querySelectorAll('.bd-tab-pane').forEach(p => p.classList.add('bd-tab-pane-hidden'));
-        btn.classList.add('bd-tab-active');
-        document.getElementById('bd-pane-' + btn.dataset.tab).classList.remove('bd-tab-pane-hidden');
-      };
-    });
-
-    // Undo/Redo Shortcuts
-    window.addEventListener('keydown', function(e) {
-      if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
-      if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
-    });
-  }
-
-  function addPin(x, y) {
-    state.history.push(JSON.stringify(state.pins));
-    var label = state.config.live ? document.getElementById('bd-lp-input-' + (state.pins.length + 1))?.value || '' : '';
-    state.pins.push({ x: x, y: y, label: label, visible: true });
-    state.future = [];
-    render();
-  }
-
-  function undo() {
-    if (state.history.length === 0) return;
-    state.future.push(JSON.stringify(state.pins));
-    state.pins = JSON.parse(state.history.pop());
-    render();
-  }
-
-  function render() {
-    var layer = document.getElementById('bd-points-layer');
-    if (!layer) return;
-    layer.innerHTML = '';
-    state.pins.forEach((p, i) => {
-      var pinEl = document.createElement('div');
-      pinEl.className = 'bd-pin';
-      pinEl.dataset.idx = i;
-      pinEl.innerHTML = '<span>' + (i + 1) + '</span>';
-      if (state.config.labels && p.label) {
-        pinEl.innerHTML += '<div class="bd-pin-label">' + p.label + '</div>';
-      }
-      // Positioning based on natural scale
-      var rect = document.getElementById('bd-main-img').getBoundingClientRect();
-      pinEl.style.left = (p.x * (rect.width / state.naturalWidth)) + 'px';
-      pinEl.style.top = (p.y * (rect.height / state.naturalHeight)) + 'px';
-      layer.appendChild(pinEl);
-    });
-    
-    document.getElementById('bd-undo-btn').disabled = state.history.length === 0;
-    document.getElementById('bd-redo-btn').disabled = state.future.length === 0;
-    document.getElementById('bd-count-display').textContent = state.pins.length + ' pins';
-  }
-
-  root.BE_DUCKY = { init: init };
-  
-  // Auto-init if drop zone exists
-  if (document.getElementById('bd-drop-zone')) init();
-
-})(window);
+}(window));
