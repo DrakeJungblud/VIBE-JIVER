@@ -109,6 +109,12 @@ img { display: block; }
   margin-right: 22px;
   flex-shrink: 0;
   user-select: none;
+  transition: opacity 0.15s;
+}
+.hud-brand:hover { opacity: 0.82; }
+.hud-brand:hover .hud-duck {
+  box-shadow: 0 0 22px rgba(197,160,89,0.65);
+  border-color: var(--gold-bright);
 }
 .hud-duck {
   width: 38px; height: 38px;
@@ -707,8 +713,8 @@ img { display: block; }
      ═══════════════════════════════════════════════════════════════════════ -->
 <header id="vj-hud" role="banner">
 
-  <!-- Brand -->
-  <div class="hud-brand" title="VIBE JIVER Studio">
+  <!-- Brand — click goes home -->
+  <div class="hud-brand" title="Go Home · VIBE JIVER Studio" onclick="VJ.switchPanel('welcome')" style="cursor:pointer;">
     <div class="hud-duck">
       <img id="vj-hud-duck-img" src="" alt="VJ duck">
     </div>
@@ -1022,12 +1028,17 @@ window.VJ = (function () {
     /* Giggle brand on every transition */
     _giggleBrand();
 
-    /* Update rail */
+    /* Update rail — set active on matching btn */
     document.querySelectorAll('.rail-btn').forEach(function (b) {
       b.classList.remove('active');
     });
     var rb = document.getElementById('rail-btn-' + id);
     if (rb) rb.classList.add('active');
+    /* Always make home active when going home */
+    if (id === 'welcome') {
+      var homeBtn = document.getElementById('rail-btn-welcome');
+      if (homeBtn) homeBtn.classList.add('active');
+    }
 
     /* Module tag in HUD */
     if (!$modTag)     $modTag     = document.getElementById('vj-hud-module-tag');
@@ -1054,23 +1065,23 @@ window.VJ = (function () {
 
         if (!_duckyReady) {
           _duckyReady = true;
-
-          /* ─ MODULE INJECTION ─────────────────────────────────────────
-             Dynamically load ducky.js into the page.
-             This is the single entry-point for the BE Ducky module.   */
           _loadScript('./modules/beDucky/ducky.js', function () {
             console.log('[VJ] ducky.js loaded and executing');
-            /* Give the module a tick to initialise its DOM, then size canvases */
             setTimeout(function () {
               if (typeof resizeGridCanvas   === 'function') resizeGridCanvas();
               if (typeof resizeCursorCanvas === 'function') resizeCursorCanvas();
               if (typeof renderPoints       === 'function') renderPoints();
               if (typeof updateCtxMenuState === 'function') updateCtxMenuState();
-            }, 60);
+              /* Auto-load ducky.png as default background if no image loaded */
+              if (window.BeDucky && typeof window.BeDucky.loadImage === 'function') {
+                if (typeof DUCK_IMG !== 'undefined' && DUCK_IMG) {
+                  window.BeDucky.loadImage(DUCK_IMG);
+                }
+              }
+            }, 80);
           });
 
         } else {
-          /* Already loaded — just resize canvases for the newly visible panel */
           setTimeout(function () {
             if (typeof resizeGridCanvas   === 'function') resizeGridCanvas();
             if (typeof resizeCursorCanvas === 'function') resizeCursorCanvas();
@@ -1078,19 +1089,21 @@ window.VJ = (function () {
         }
 
       } else {
-        /* Hide module root if we're leaving ducky */
+        /* Hide module root — we are going back to a shell panel */
         moduleRoot.classList.remove('vj-mod--active');
-
         var panelEl = document.getElementById('panel-' + id);
         if (panelEl) _enterPanel(panelEl);
       }
     };
 
     if (currentEl) {
-      /* Hide module root immediately if it was visible */
       if (id !== 'ducky') moduleRoot.classList.remove('vj-mod--active');
       _exitPanel(currentEl, _doEnter);
     } else {
+      /* No panel visible — module root may be showing, hide it first */
+      if (id !== 'ducky') {
+        moduleRoot.classList.remove('vj-mod--active');
+      }
       _doEnter();
     }
   }
