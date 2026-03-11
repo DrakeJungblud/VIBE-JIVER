@@ -145,6 +145,7 @@
     /* canvas */
     '    <div class="bd-canvas-area">',
     '      <div class="bd-drop-zone" id="bd-drop-zone">',
+    '        <div class="bd-drop-duck-bg" id="bd-drop-duck-bg"></div>',
     '        <div class="bd-drop-icon">&#127919;</div>',
     '        <div class="bd-drop-title">Drop Image Here</div>',
     '        <div class="bd-drop-sub">or click to browse &middot; PNG JPG GIF WebP SVG</div>',
@@ -591,10 +592,12 @@
       '.bd-canvas-area{flex:1;position:relative;overflow:auto;background:#050505;display:flex;align-items:center;justify-content:center;min-height:0;min-width:0}',
       '.bd-drop-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;width:100%;height:100%;border:2px dashed #1e1e1e;border-radius:4px;cursor:pointer;transition:border-color .2s,background .2s;position:absolute;inset:0}',
       '.bd-drop-zone:hover,.bd-drag-over{border-color:rgba(197,160,89,.45);background:rgba(197,160,89,.03)}',
-      '.bd-drop-icon{font-size:3rem;opacity:.22;pointer-events:none}',
-      '.bd-drop-title{font-family:"Oswald",sans-serif;font-size:1.1rem;color:#aaaaaa;letter-spacing:3px;text-transform:uppercase;pointer-events:none}',
-      '.bd-drop-sub{font-family:"Share Tech Mono",monospace;font-size:13px;color:#888888;letter-spacing:.8px;pointer-events:none}',
-      '.bd-drop-hint{font-family:"Share Tech Mono",monospace;font-size:12px;color:#777777;letter-spacing:.5px;pointer-events:none}',
+      '.bd-drop-duck-bg{position:absolute;inset:0;background-size:contain;background-repeat:no-repeat;background-position:center;opacity:0.13;pointer-events:none;transition:opacity .3s}',
+      '.bd-drop-zone:hover .bd-drop-duck-bg{opacity:0.2}',
+      '.bd-drop-icon{font-size:3rem;opacity:.5;pointer-events:none;position:relative;z-index:1}',
+      '.bd-drop-title{font-family:"Oswald",sans-serif;font-size:1.1rem;color:#aaaaaa;letter-spacing:3px;text-transform:uppercase;pointer-events:none;position:relative;z-index:1}',
+      '.bd-drop-sub{font-family:"Share Tech Mono",monospace;font-size:13px;color:#888888;letter-spacing:.8px;pointer-events:none;position:relative;z-index:1}',
+      '.bd-drop-hint{font-family:"Share Tech Mono",monospace;font-size:12px;color:#777777;letter-spacing:.5px;pointer-events:none;position:relative;z-index:1}',
       '.bd-image-area{width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:absolute;inset:0;overflow:auto;padding:12px}',
       '.bd-image-wrap{position:relative;display:inline-block;cursor:none;max-width:100%;max-height:100%;flex-shrink:0}',
       '.bd-main-img{display:block;max-width:100%;max-height:calc(100vh - 200px);width:auto;height:auto;pointer-events:none;user-select:none}',
@@ -1670,6 +1673,15 @@
   _setPanelState('normal');
   _setTab('labels');
   _setStatus('Ready \u00b7 Fill label slots \u00b7 Drop or browse an image \u00b7 Right-click = menu');
+
+  /* Set ducky.png as drop zone background hero */
+  (function(){
+    var bg = _q('#bd-drop-duck-bg');
+    if(bg && typeof DUCK_IMG !== 'undefined' && DUCK_IMG){
+      bg.style.backgroundImage = 'url(' + DUCK_IMG + ')';
+    }
+  })();
+
   console.log('[BeDucky] v57 mounted OK.');
 
 }(window));
